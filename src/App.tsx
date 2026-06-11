@@ -659,7 +659,7 @@ export default function App() {
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left text-xs font-bold tracking-wide transition-all cursor-pointer ${
                       isActive
                         ? tab.id === 'dashboard'
-                          ? 'bg-red-600 text-white font-extrabold shadow-sm hover:bg-red-700'
+                          ? 'bg-orange-600 text-white font-extrabold shadow-sm hover:bg-orange-750'
                           : 'bg-[#1D293D] text-white font-extrabold shadow-sm hover:bg-[#25344d] border border-[#2d3a52]'
                         : 'text-slate-300 hover:bg-[#1D293D]/40 hover:text-white'
                     }`}
