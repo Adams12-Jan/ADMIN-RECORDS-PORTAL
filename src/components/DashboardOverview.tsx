@@ -65,43 +65,43 @@ export default function DashboardOverview({
   const totalItemsAvailable = catalog.filter(i => i.status === 'active').reduce((sum, item) => sum + item.availableQuantity, 0);
   const lowStockItems = catalog.filter(i => i.status === 'active' && i.availableQuantity <= i.reorderLevel);
 
-  // 2. Quantity Analysis Calculations (by Category, Department)
+  // 2. Expenditure Analysis Calculations (by Category, Department)
   const categoryChartData: { name: string; value: number }[] = [];
   const departmentChartData: { name: string; value: number }[] = [];
 
   // Group stationery transactions (only from completed, approved, or issued items)
   const completedAndIssuedRequests = requests.filter(r => ['completed', 'issued', 'approved'].includes(r.status));
 
-  const totalQuantities = completedAndIssuedRequests.reduce((sum, r) => {
+  const totalExpenditure = completedAndIssuedRequests.reduce((sum, r) => {
     return sum + r.items.reduce((itemSum, item) => {
-      return itemSum + item.quantity;
+      return itemSum + (item.quantity * item.unitCostSnapshot);
     }, 0);
   }, 0);
 
   // Calculate by Category
-  const categoryQuantities: Record<string, number> = {};
+  const categoryCosts: Record<string, number> = {};
   completedAndIssuedRequests.forEach(r => {
     r.items.forEach(reqItem => {
       const catItem = catalog.find(i => i.id === reqItem.itemId);
       const category = catItem ? catItem.category : 'Other';
-      categoryQuantities[category] = (categoryQuantities[category] || 0) + reqItem.quantity;
+      categoryCosts[category] = (categoryCosts[category] || 0) + (reqItem.quantity * reqItem.unitCostSnapshot);
     });
   });
 
-  Object.entries(categoryQuantities).forEach(([name, value]) => {
-    categoryChartData.push({ name, value });
+  Object.entries(categoryCosts).forEach(([name, value]) => {
+    categoryChartData.push({ name, value: parseFloat(value.toFixed(2)) });
   });
 
   // Calculate by Department
-  const deptQuantities: Record<string, number> = {};
+  const deptCosts: Record<string, number> = {};
   completedAndIssuedRequests.forEach(r => {
     const deptName = departments.find(d => d.id === r.departmentId)?.name || r.departmentName || 'Unknown';
-    const requestQty = r.items.reduce((sum, item) => sum + item.quantity, 0);
-    deptQuantities[deptName] = (deptQuantities[deptName] || 0) + requestQty;
+    const requestCost = r.items.reduce((sum, item) => sum + (item.quantity * item.unitCostSnapshot), 0);
+    deptCosts[deptName] = (deptCosts[deptName] || 0) + requestCost;
   });
 
-  Object.entries(deptQuantities).forEach(([name, value]) => {
-    departmentChartData.push({ name, value });
+  Object.entries(deptCosts).forEach(([name, value]) => {
+    departmentChartData.push({ name, value: parseFloat(value.toFixed(2)) });
   });
 
   // Fill initial defaults if zero
@@ -265,13 +265,15 @@ export default function DashboardOverview({
         {currentUser.role === 'employee' ? (
           <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs hover:shadow-xs transition-shadow flex items-start justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">My Ordered Units</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">My Total Expenditure</p>
               <h3 className="text-2xl font-bold text-indigo-600 font-sans tracking-tight">
-                {myRequests
-                  .filter(r => ['approved', 'issued', 'completed'].includes(r.status))
-                  .reduce((total, r) => total + r.items.reduce((s, i) => s + i.quantity, 0), 0)}
+                {formatCurrency(
+                  myRequests
+                    .filter(r => ['approved', 'issued', 'completed'].includes(r.status))
+                    .reduce((total, r) => total + r.items.reduce((s, i) => s + (i.quantity * i.unitCostSnapshot), 0), 0)
+                )}
               </h3>
-              <p className="text-[10px] text-slate-400">Total units approved/dispatched</p>
+              <p className="text-[10px] text-slate-400">Total value approved/dispatched</p>
             </div>
             <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
               <TrendingUp className="w-5 h-5" />
@@ -300,10 +302,10 @@ export default function DashboardOverview({
           <div>
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-indigo-600" />
-              Stationery Distributed by Category (Units)
+              Stationery Expenditure by Category
             </h3>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Accumulated quantities ({totalQuantities} total units) from approved, issued, and completed stationery requests.
+              Accumulated standard pricing ({formatCurrency(totalExpenditure)} total cost) from approved, issued, and completed stationery requests.
             </p>
           </div>
           <div className="h-64 mt-4 w-full text-xs">
@@ -316,7 +318,7 @@ export default function DashboardOverview({
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
                 <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
                 <Tooltip
-                  formatter={(value) => [`${value} units`, 'Quantity']}
+                  formatter={(value) => [formatCurrency(Number(value)), 'Total Spent']}
                   contentStyle={{ backgroundColor: '#1e293b', color: '#fff', borderRadius: '8px', border: 'none' }}
                 />
                 <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]}>
@@ -334,9 +336,9 @@ export default function DashboardOverview({
           <div>
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-indigo-600" />
-              Department Quantity Share
+              Department Expenditure Share
             </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Proportional stock distribution across company divisions.</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Proportional cost distribution across company divisions.</p>
           </div>
 
           <div className="flex-1 flex flex-col items-center justify-center mt-4">
@@ -356,12 +358,12 @@ export default function DashboardOverview({
                       <Cell key={`cell-${index}`} fill={CHART_COLORS[(index + 2) % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [`${value} units`, 'Total']} />
+                  <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Total Expenditure']} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute text-center">
-                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider leading-3">Total Units</p>
-                <p className="text-base font-bold text-slate-800 font-sans mt-0.5">{totalQuantities}</p>
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider leading-3">Total Cost</p>
+                <p className="text-xs font-bold text-slate-800 font-sans mt-0.5">{formatCurrency(totalExpenditure)}</p>
               </div>
             </div>
 
@@ -376,7 +378,7 @@ export default function DashboardOverview({
                     />
                     <span className="truncate">{entry.name}</span>
                   </div>
-                  <span className="font-semibold text-slate-800">{entry.value} units</span>
+                  <span className="font-semibold text-slate-800">{formatCurrency(entry.value)}</span>
                 </div>
               ))}
             </div>

@@ -16,7 +16,7 @@ import {
   Clock,
   Printer
 } from 'lucide-react';
-import { exportToCSV, formatDate } from '../utils/helpers';
+import { exportToCSV, formatDate, formatCurrency } from '../utils/helpers';
 
 interface ReportSectionProps {
   requests: StationeryRequest[];
@@ -47,17 +47,18 @@ export default function ReportSection({
   const getReportingData = () => {
     switch (reportType) {
       case 'monthly_usage': {
-        const counts: Record<string, { quantity: number; items: Set<string> }> = {};
+        const counts: Record<string, { quantity: number; cost: number; items: Set<string> }> = {};
         fulfilledRequests.forEach(r => {
           const dateObj = new Date(r.createdAt);
           const monthYear = dateObj.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
           if (!counts[monthYear]) {
-            counts[monthYear] = { quantity: 0, items: new Set() };
+            counts[monthYear] = { quantity: 0, cost: 0, items: new Set() };
           }
 
           r.items.forEach(it => {
             counts[monthYear].quantity += it.quantity;
+            counts[monthYear].cost += it.quantity * it.unitCostSnapshot;
             counts[monthYear].items.add(it.itemId);
           });
         });
@@ -66,26 +67,27 @@ export default function ReportSection({
           col1: month,
           col2: `${data.items.size} unique products`,
           col3: `${data.quantity} units requested`,
-          col4: 'Fulfillment Audited',
-          rawCost: data.quantity,
-          excelRow: [month, String(data.items.size), String(data.quantity), 'Audited']
+          col4: formatCurrency(data.cost),
+          rawCost: data.cost,
+          excelRow: [month, String(data.items.size), String(data.quantity), formatCurrency(data.cost)]
         }));
       }
 
       case 'department_consumption': {
-        const counts: Record<string, { quantity: number; ticketCount: number }> = {};
+        const counts: Record<string, { quantity: number; cost: number; ticketCount: number }> = {};
         departments.forEach(d => {
-          counts[d.name] = { quantity: 0, ticketCount: 0 };
+          counts[d.name] = { quantity: 0, cost: 0, ticketCount: 0 };
         });
 
         fulfilledRequests.forEach(r => {
           const deptName = departments.find(d => d.id === r.departmentId)?.name || r.departmentName || 'Other';
           if (!counts[deptName]) {
-            counts[deptName] = { quantity: 0, ticketCount: 0 };
+            counts[deptName] = { quantity: 0, cost: 0, ticketCount: 0 };
           }
           counts[deptName].ticketCount += 1;
           r.items.forEach(it => {
             counts[deptName].quantity += it.quantity;
+            counts[deptName].cost += it.quantity * it.unitCostSnapshot;
           });
         });
 
@@ -93,27 +95,28 @@ export default function ReportSection({
           col1: dept,
           col2: `${data.ticketCount} tickets processed`,
           col3: `${data.quantity} units assigned`,
-          col4: 'Department Active',
-          rawCost: data.quantity,
-          excelRow: [dept, String(data.ticketCount), String(data.quantity), 'Active']
+          col4: formatCurrency(data.cost),
+          rawCost: data.cost,
+          excelRow: [dept, String(data.ticketCount), String(data.quantity), formatCurrency(data.cost)]
         }));
       }
 
       case 'user_request': {
-        const counts: Record<string, { quantity: number; requestCount: number; email: string }> = {};
+        const counts: Record<string, { quantity: number; cost: number; requestCount: number; email: string }> = {};
         users.forEach(u => {
-          counts[u.fullName] = { quantity: 0, requestCount: 0, email: u.email };
+          counts[u.fullName] = { quantity: 0, cost: 0, requestCount: 0, email: u.email };
         });
 
         fulfilledRequests.forEach(r => {
           const userObj = users.find(u => u.id === r.userId);
           const fullName = userObj ? userObj.fullName : r.userFullName;
           if (!counts[fullName]) {
-            counts[fullName] = { quantity: 0, requestCount: 0, email: r.userId };
+            counts[fullName] = { quantity: 0, cost: 0, requestCount: 0, email: r.userId };
           }
           counts[fullName].requestCount += 1;
           r.items.forEach(it => {
             counts[fullName].quantity += it.quantity;
+            counts[fullName].cost += it.quantity * it.unitCostSnapshot;
           });
         });
 
@@ -121,29 +124,30 @@ export default function ReportSection({
           col1: uName,
           col2: data.email,
           col3: `${data.requestCount} orders submitted`,
-          col4: `${data.quantity} units total`,
-          rawCost: data.quantity,
-          excelRow: [uName, data.email, String(data.requestCount), String(data.quantity)]
+          col4: formatCurrency(data.cost),
+          rawCost: data.cost,
+          excelRow: [uName, data.email, String(data.requestCount), formatCurrency(data.cost)]
         }));
       }
 
       case 'inventory_balance': {
         return catalog.map(item => {
+          const value = item.availableQuantity * item.unitCost;
           return {
             col1: item.id,
             col2: item.name,
             col3: `${item.availableQuantity} in stock`,
-            col4: `Reorder lvl: ${item.reorderLevel}`,
-            rawCost: item.availableQuantity,
-            excelRow: [item.id, item.name, String(item.availableQuantity), String(item.reorderLevel)]
+            col4: formatCurrency(value),
+            rawCost: value,
+            excelRow: [item.id, item.name, String(item.availableQuantity), formatCurrency(value)]
           };
         });
       }
 
       case 'category_breakdown': {
-        const counts: Record<string, { units: number; itemsCount: number }> = {};
+        const counts: Record<string, { units: number; cost: number; itemsCount: number }> = {};
         catalog.forEach(cat => {
-          counts[cat.category] = { units: 0, itemsCount: 0 };
+          counts[cat.category] = { units: 0, cost: 0, itemsCount: 0 };
         });
 
         fulfilledRequests.forEach(r => {
@@ -152,9 +156,10 @@ export default function ReportSection({
             const category = catItem ? catItem.category : 'Other';
 
             if (!counts[category]) {
-              counts[category] = { units: 0, itemsCount: 0 };
+              counts[category] = { units: 0, cost: 0, itemsCount: 0 };
             }
             counts[category].units += it.quantity;
+            counts[category].cost += it.quantity * it.unitCostSnapshot;
             counts[category].itemsCount += 1;
           });
         });
@@ -163,9 +168,9 @@ export default function ReportSection({
           col1: cat,
           col2: `${data.units} total units issued`,
           col3: 'Standard Replenishment Line',
-          col4: `${data.itemsCount} request audits`,
-          rawCost: data.units,
-          excelRow: [cat, String(data.units), String(data.itemsCount)]
+          col4: formatCurrency(data.cost),
+          rawCost: data.cost,
+          excelRow: [cat, String(data.units), String(data.itemsCount), formatCurrency(data.cost)]
         }));
       }
 
@@ -198,23 +203,23 @@ export default function ReportSection({
 
     switch (reportType) {
       case 'monthly_usage':
-        headers = ['Month/Period', 'Procured Products count', 'Total Quantities', 'Ledger Status'];
+        headers = ['Month/Period', 'Procured Products count', 'Total Quantities', 'Standard Valuation'];
         filename = 'monthly_stationery_usage.csv';
         break;
       case 'department_consumption':
-        headers = ['Department Name', 'Approved ticket Count', 'Sum of Quantities', 'Status Tag'];
+        headers = ['Department Name', 'Approved ticket Count', 'Sum of Quantities', 'Corporate Valuation'];
         filename = 'dept_stationery_consumption.csv';
         break;
       case 'user_request':
-        headers = ['Full Name', 'Corporate Email Address', 'Total order Count', 'Sum units requested'];
+        headers = ['Full Name', 'Corporate Email Address', 'Total order Count', 'Financial Total cost'];
         filename = 'user_stationery_reports.csv';
         break;
       case 'inventory_balance':
-        headers = ['Catalog ID', 'Product Description', 'Quantity balance', 'Reorder trigger'];
+        headers = ['Catalog ID', 'Product Description', 'Quantity balance', 'Financial Valuation'];
         filename = 'inventory_stationery_evaluation.csv';
         break;
       case 'category_breakdown':
-        headers = ['Product Category', 'Total quantities ordered', 'Total audits count'];
+        headers = ['Product Category', 'Total quantities ordered', 'Total audits count', 'Actual Valuation'];
         filename = 'stationery_category_breakdown.csv';
         break;
       case 'approval_turnaround':
@@ -273,27 +278,33 @@ export default function ReportSection({
       {/* Main Report Table & graphical mini widgets */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* KPI Summaries panel */}
-        <div className="lg:col-span-1 space-y-4">
+        <div className="lg:col-span-1 space-y-4 font-semibold text-slate-700">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
             Report Statistics
           </span>
           <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs divide-y divide-slate-150 text-xs">
             <div className="pb-3.5 space-y-1">
               <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Dispatched Tickets</span>
-              <p className="text-xl font-extrabold text-slate-900 font-sans">
+              <p className="text-lg font-bold text-slate-900 font-sans">
                 {fulfilledRequests.length} Approved Vouchers
               </p>
             </div>
             <div className="py-3.5 space-y-1">
               <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Stockroom Catalog Size</span>
-              <p className="text-xl font-bold text-slate-800 font-mono">
+              <p className="text-lg font-bold text-slate-850 font-mono">
                 {catalog.length} Unique SKUs
               </p>
             </div>
-            <div className="pt-3.5 space-y-1">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total fulfilled items</span>
-              <p className="text-xl font-mono font-bold text-slate-705">
+            <div className="py-3.5 space-y-1">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Dispatched Units</span>
+              <p className="text-lg font-mono font-bold text-slate-800">
                 {fulfilledRequests.reduce((sum, r) => sum + r.items.reduce((s, i) => s + i.quantity, 0), 0)} units
+              </p>
+            </div>
+            <div className="pt-3.5 space-y-1">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold text-indigo-600">Actual Outlay (Cost)</span>
+              <p className="text-lg font-mono font-bold text-indigo-600">
+                {formatCurrency(fulfilledRequests.reduce((sum, r) => sum + r.items.reduce((s, i) => s + (i.quantity * i.unitCostSnapshot), 0), 0))}
               </p>
             </div>
           </div>
@@ -335,7 +346,7 @@ export default function ReportSection({
                     {reportType === 'approval_turnaround' && 'Approved signatures'}
                   </th>
                   <th className="p-3.5 text-right pr-6">
-                    {reportType === 'approval_turnaround' ? 'Avg. turnaround duration' : 'Aggregate Evaluation'}
+                    {reportType === 'approval_turnaround' ? 'Avg. turnaround duration' : 'Financial Outlay'}
                   </th>
                 </tr>
               </thead>

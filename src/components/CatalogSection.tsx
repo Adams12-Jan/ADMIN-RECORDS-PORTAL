@@ -245,15 +245,15 @@ export default function CatalogSection({
                 {/* Logistics */}
                 <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-150 text-xs">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">In Stock / Balance</span>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">In Stock</span>
                     <p className={`font-mono font-bold mt-0.5 ${isLowStock ? 'text-rose-600' : 'text-slate-800'}`}>
                       {item.availableQuantity} units
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Reorder Level</span>
+                    <span className="text-[10px] text-slate-450 uppercase tracking-wider font-bold">Unit Cost</span>
                     <p className="font-mono font-bold text-slate-800 mt-0.5">
-                      {item.reorderLevel} units
+                      {formatCurrency(item.unitCost)}
                     </p>
                   </div>
                 </div>
@@ -394,7 +394,19 @@ export default function CatalogSection({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-slate-500 mb-1.5">Unit Cost (USD) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.05"
+                    required
+                    value={itemCost}
+                    onChange={(e) => setItemCost(parseFloat(e.target.value) || 0)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none font-mono"
+                  />
+                </div>
                 <div>
                   <label className="block text-slate-500 mb-1.5">Initial Quantity *</label>
                   <input
@@ -480,7 +492,19 @@ export default function CatalogSection({
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-500 mb-1.5">Unit Cost (USD) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={editingItem.unitCost}
+                    onChange={(e) => setEditingItem({ ...editingItem, unitCost: parseFloat(e.target.value) || 0 })}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none font-mono"
+                  />
+                </div>
                 <div>
                   <label className="block text-slate-500 mb-1.5">Reorder Level *</label>
                   <input

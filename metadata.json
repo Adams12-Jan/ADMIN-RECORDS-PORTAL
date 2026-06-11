@@ -1,6 +1,6 @@
 {
   "name": "Inventory Bin Card System",
-  "description": "An online bin card system for tracking stationery catalog inventory records, department allocations, and stockroom level transactions without financial or pricing valuations.",
+  "description": "An online bin card and stationery procurement system for tracking catalog inventory records, unit costs, department expenditures, and financial stockroom transactions.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
