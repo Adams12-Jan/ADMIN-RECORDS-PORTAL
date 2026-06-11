@@ -157,6 +157,10 @@ export default function App() {
   }, [systemConfig]);
 
   useEffect(() => {
+    document.title = `${systemConfig.portalName || 'Stationery Request Hub'} | ${systemConfig.portalSubtitle || 'Vetiva Admin'}`;
+  }, [systemConfig.portalName, systemConfig.portalSubtitle]);
+
+  useEffect(() => {
     saveState('stationery_active_user', currentUser);
   }, [currentUser]);
 
