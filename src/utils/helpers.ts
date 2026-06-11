@@ -78,3 +78,22 @@ export function exportToCSV(filename: string, headers: string[], rows: string[][
   link.click();
   document.body.removeChild(link);
 }
+
+export function resolveLogoUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  // Match Imgur album: imgur.com/a/xxxx
+  const albumRegex = /imgur\.com\/a\/([a-zA-Z0-9]+)/;
+  const albumMatch = url.match(albumRegex);
+  if (albumMatch && albumMatch[1]) {
+    return `https://i.imgur.com/${albumMatch[1]}.png`;
+  }
+  
+  // Match standard Imgur page: imgur.com/xxxx (excluding static directories/words)
+  const singleRegex = /imgur\.com\/([a-zA-Z0-9]+)(?:\.\w+)?$/;
+  const singleMatch = url.match(singleRegex);
+  if (singleMatch && singleMatch[1]) {
+    return `https://i.imgur.com/${singleMatch[1]}.png`;
+  }
+
+  return url;
+}

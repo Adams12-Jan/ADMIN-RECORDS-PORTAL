@@ -358,7 +358,8 @@ export const INITIAL_CONFIG: SystemConfig = {
   enforceStockLevels: true,
   allowEmployeeDirectSourcing: false,
   portalName: 'Stationery Request Hub',
-  portalSubtitle: 'Corporate Services Portal',
+  portalSubtitle: 'Vetiva Admin Services Portal',
   announcementText: 'Welcome to the Corporate Stationery Request dispatch desk! Log a ticket, track your manager signoff, or request stock room pickups.',
-  primaryColor: 'indigo'
+  primaryColor: 'indigo',
+  portalLogoUrl: 'https://i.imgur.com/G8yzhqN.png'
 };

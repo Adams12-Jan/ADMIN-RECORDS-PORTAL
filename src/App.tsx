@@ -28,7 +28,8 @@ import {
 import {
   loadState,
   saveState,
-  createAuditLog
+  createAuditLog,
+  resolveLogoUrl
 } from './utils/helpers';
 
 // Components
@@ -89,7 +90,17 @@ export default function App() {
   const [transactions, setTransactions] = useState<InventoryTransaction[]>(() => loadState('stationery_transactions', INITIAL_TRANSACTIONS));
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => loadState('stationery_audit_logs', INITIAL_AUDIT_LOGS));
   const [notifications, setNotifications] = useState<AppNotification[]>(() => loadState('stationery_notifications', INITIAL_NOTIFICATIONS));
-  const [systemConfig, setSystemConfig] = useState<SystemConfig>(() => loadState('stationery_config', INITIAL_CONFIG));
+  const [systemConfig, setSystemConfig] = useState<SystemConfig>(() => {
+    const loaded = loadState<SystemConfig>('stationery_config', INITIAL_CONFIG);
+    const updated = { ...loaded };
+    if (!updated.portalSubtitle || updated.portalSubtitle === 'Corporate Services Portal') {
+      updated.portalSubtitle = 'Vetiva Admin Services Portal';
+    }
+    if (!updated.portalLogoUrl || updated.portalLogoUrl === 'https://i.imgur.com/hDAdzgz.png') {
+      updated.portalLogoUrl = 'https://i.imgur.com/G8yzhqN.png';
+    }
+    return updated;
+  });
 
   // Current Active Impersonation User State
   const [currentUser, setCurrentUser] = useState<User>(() => {
@@ -551,28 +562,38 @@ export default function App() {
   const sidebarTabs = getSidebarTabs();
 
   return (
-    <div className={`min-h-screen font-sans ${themeMode === 'dark' ? 'dark bg-slate-950 text-slate-100' : 'bg-[#f8fafc] text-slate-800'}`}>
+    <div className={`min-h-screen font-sans ${themeMode === 'dark' ? 'dark bg-[#1D1A4B] text-white' : 'bg-[#f8fafc] text-slate-800'}`}>
       {/* Upper header navigation */}
-      <header id="app-workspace-header" className="sticky top-0 z-40 bg-white border-b border-slate-200/80 px-4 md:px-6 py-3.5 flex items-center justify-between shadow-xs print:hidden">
+      <header id="app-workspace-header" className="sticky top-0 z-40 bg-gradient-to-r from-[#10182D] to-[#1D1A4B] border-b border-[#1D293D] px-4 md:px-6 py-3.5 flex items-center justify-between shadow-sm print:hidden">
         <div className="flex items-center gap-3">
           {/* Mobile sidebar toggle button */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden p-1.5 text-slate-500 hover:text-slate-800 cursor-pointer"
+            className="md:hidden p-1.5 text-white bg-[#1D293D] hover:bg-[#25344d] rounded-lg cursor-pointer transition-colors"
           >
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white rounded-lg shadow-sm">
-              <Layers className="w-5 h-5" />
-            </div>
+            {systemConfig.portalLogoUrl ? (
+              <img
+                src={resolveLogoUrl(systemConfig.portalLogoUrl)}
+                alt="Vetiva Logo"
+                id="portal-header-logo-image"
+                referrerPolicy="no-referrer"
+                className="h-10 w-auto max-w-[150px] object-contain rounded-lg"
+              />
+            ) : (
+              <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white rounded-lg shadow-sm">
+                <Layers className="w-5 h-5" />
+              </div>
+            )}
             <div>
-              <h1 className="text-sm font-black tracking-tight text-slate-900 uppercase">
+              <h1 className="text-sm font-black tracking-tight text-white uppercase">
                 {systemConfig.portalName || 'Stationery Request Hub'}
               </h1>
-              <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest leading-3 mt-0.5">
-                {systemConfig.portalSubtitle || 'Corporate Services Portal'}
+              <p className="text-[9.5px] font-bold text-blue-200/90 uppercase tracking-widest leading-3 mt-0.5">
+                {systemConfig.portalSubtitle || 'Vetiva Admin Services Portal'}
               </p>
             </div>
           </div>
@@ -582,7 +603,7 @@ export default function App() {
         <div className="flex items-center gap-3">
           {/* Low Stock Indicator Header Bar */}
           {lowStockCount > 0 && (
-            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 bg-red-50 text-rose-700 text-[11px] font-extrabold border border-red-200 rounded-full cursor-pointer animate-pulse" onClick={() => { setActiveTab('catalog'); }}>
+            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 bg-red-500 text-white text-[11px] font-extrabold border border-red-600 rounded-full cursor-pointer animate-pulse" onClick={() => { setActiveTab('catalog'); }}>
               <AlertTriangle className="w-3.5 h-3.5" />
               {lowStockCount} Low stock warnings
             </div>
@@ -592,7 +613,7 @@ export default function App() {
           <button
             id="btn-toggle-theme"
             onClick={() => setThemeMode(themeMode === 'light' ? 'dark' : 'light')}
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
+            className="p-2 text-white bg-[#1D293D] hover:bg-[#25344d] rounded-lg transition-all cursor-pointer"
             title="Alternative dark-mode simulation"
           >
             {themeMode === 'light' ? <Moon className="w-4.5 h-4.5" /> : <Sun className="w-4.5 h-4.5 text-amber-500" />}
@@ -615,7 +636,7 @@ export default function App() {
         {/* Responsive left sidebar */}
         <aside
           id="app-sidebar-nav"
-          className={`fixed md:sticky top-[69px] h-[calc(100vh-69px)] w-64 bg-white border-r border-slate-200/80 p-4 shrink-0 transition-transform duration-200 ease-in-out z-35 md:translate-x-0 print:hidden ${
+          className={`fixed md:sticky top-[69px] h-[calc(100vh-69px)] w-64 bg-[#10182D] border-r border-[#1D293D] p-4 shrink-0 transition-transform duration-200 ease-in-out z-35 md:translate-x-0 print:hidden ${
             sidebarOpen ? 'translate-x-0 shadow-lg' : '-translate-x-full'
           }`}
         >
@@ -634,8 +655,10 @@ export default function App() {
                     }}
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left text-xs font-bold tracking-wide transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-indigo-650 text-white font-extrabold shadow-sm hover:bg-indigo-700'
-                        : 'text-slate-655 hover:bg-slate-50 hover:text-slate-850'
+                        ? tab.id === 'dashboard'
+                          ? 'bg-red-600 text-white font-extrabold shadow-sm hover:bg-red-700'
+                          : 'bg-[#1D293D] text-white font-extrabold shadow-sm hover:bg-[#25344d] border border-[#2d3a52]'
+                        : 'text-slate-300 hover:bg-[#1D293D]/40 hover:text-white'
                     }`}
                   >
                     {tab.icon}
@@ -646,11 +669,11 @@ export default function App() {
             </nav>
 
             {/* Bottom active statistics indicator */}
-            <div className="space-y-3.5 border-t border-slate-100 pt-4 px-1.5">
+            <div className="space-y-3.5 border-t border-[#1D293D] pt-4 px-1.5">
               <div className="space-y-1">
                 <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black">Authorized Section</span>
-                <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                <p className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
                   Security: ACTIVE
                 </p>
                 <p className="text-[10px] text-slate-400 font-mono">UID: {currentUser.id}</p>
@@ -664,7 +687,7 @@ export default function App() {
                     window.location.reload();
                   }
                 }}
-                className="w-full text-center text-[10.5px] font-bold text-slate-400 hover:text-rose-600 border border-slate-150 py-1.5 rounded-lg transition-colors cursor-pointer"
+                className="w-full text-center text-[10.5px] font-bold text-slate-300 hover:text-rose-450 border border-[#1D293D] hover:border-rose-500 py-1.5 rounded-lg transition-colors cursor-pointer"
               >
                 Reset System State
               </button>

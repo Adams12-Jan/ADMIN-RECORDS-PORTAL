@@ -113,4 +113,5 @@ export interface SystemConfig {
   portalSubtitle?: string;
   announcementText?: string;
   primaryColor?: string;
+  portalLogoUrl?: string;
 }

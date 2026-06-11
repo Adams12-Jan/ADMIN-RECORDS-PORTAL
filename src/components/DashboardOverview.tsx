@@ -162,7 +162,7 @@ export default function DashboardOverview({
       )}
 
       {/* Dynamic Header */}
-      <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-6 shadow-sm border border-slate-800">
+      <div className="bg-gradient-to-r from-black via-slate-950 to-slate-900 text-white rounded-2xl p-6 shadow-sm border border-slate-800/40">
         <div className="max-w-3xl">
           <h2 className="text-xl md:text-2xl font-semibold tracking-tight font-sans">
             Welcome back, {currentUser.fullName}!

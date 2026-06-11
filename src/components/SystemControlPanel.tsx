@@ -444,6 +444,18 @@ export default function SystemControlPanel({
                   />
                   <span className="text-[10px] text-slate-450 font-normal mt-1 block">Changes the sub-header label that appears next to the logo.</span>
                 </div>
+
+                <div>
+                  <label className="block text-slate-500 mb-1.5 font-bold">Portal Logo Image URL</label>
+                  <input
+                    type="text"
+                    value={systemConfig.portalLogoUrl || ''}
+                    onChange={(e) => onUpdateConfig({ ...systemConfig, portalLogoUrl: e.target.value })}
+                    className="w-full border border-slate-250 rounded-xl px-3.5 py-2 text-xs focus:outline-none font-mono"
+                    placeholder="e.g. https://imgur.com/a/hDAdzgz"
+                  />
+                  <span className="text-[10px] text-slate-450 font-normal mt-1 block">Provide a URL for the corporate logo (Imgur or direct link).</span>
+                </div>
               </div>
 
               <div className="space-y-4">
