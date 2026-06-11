@@ -42,6 +42,7 @@ import InventorySection from './components/InventorySection';
 import ReportSection from './components/ReportSection';
 import SystemControlPanel from './components/SystemControlPanel';
 import ProfileSection from './components/ProfileSection';
+import TerminalSection from './components/TerminalSection';
 
 // Icons
 import {
@@ -62,6 +63,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   Menu,
+  Terminal,
   X
 } from 'lucide-react';
 
@@ -533,7 +535,8 @@ export default function App() {
     const defaultTabs = [
       { id: 'dashboard', label: 'Overview Metrics', icon: <LayoutDashboard className="w-4 h-4" /> },
       { id: 'catalog', label: 'Stockroom Catalog', icon: <ShoppingBag className="w-4 h-4" /> },
-      { id: 'requests', label: 'Create Request', icon: <History className="w-4 h-4" /> }
+      { id: 'requests', label: 'Create Request', icon: <History className="w-4 h-4" /> },
+      { id: 'bincard', label: 'Bin Card CMD', icon: <Terminal className="w-4 h-4 text-indigo-400" /> }
     ];
 
     if (currentUser.role === 'approver') {
@@ -778,6 +781,18 @@ export default function App() {
             <ProfileSection
               currentUser={currentUser}
               onUpdateUserDetails={handleUpdateUserDetails}
+            />
+          )}
+
+          {activeTab === 'bincard' && (
+            <TerminalSection
+              currentUser={currentUser}
+              catalog={catalog}
+              setCatalog={setCatalog}
+              transactions={transactions}
+              setTransactions={setTransactions}
+              departments={departments}
+              setAuditLogs={setAuditLogs}
             />
           )}
         </main>

@@ -166,6 +166,72 @@ export const INITIAL_CATALOG: StationeryItem[] = [
     reorderLevel: 6,
     vendorName: 'UniTech Instruments',
     status: 'active'
+  },
+  {
+    id: 'STAT-009',
+    name: 'Executive Core-i7 Business Laptop (16GB RAM, 512GB SSD)',
+    category: 'IT Hardware',
+    description: 'High-performance corporate deployment laptop pre-configured with secure enterprise controls.',
+    unitCost: 899.00,
+    availableQuantity: 12,
+    reorderLevel: 3,
+    vendorName: 'DirectTech Distributing',
+    status: 'active'
+  },
+  {
+    id: 'STAT-010',
+    name: 'Universal USB-C Fast Charger Power Pack (65W QuickCharge)',
+    category: 'IT Hardware',
+    description: 'Replacement high durability power delivery adapter suitable for modern corporate laptops.',
+    unitCost: 45.00,
+    availableQuantity: 28,
+    reorderLevel: 5,
+    vendorName: 'PowerVolt Systems',
+    status: 'active'
+  },
+  {
+    id: 'STAT-011',
+    name: 'Standard USB Optical Wired Mouse (Precision Clicking)',
+    category: 'IT Hardware',
+    description: 'High reliability ambidextrous office desktop wired mouse with 1.5m USB cable.',
+    unitCost: 14.99,
+    availableQuantity: 62,
+    reorderLevel: 10,
+    vendorName: 'UniTech Instruments',
+    status: 'active'
+  },
+  {
+    id: 'STAT-012',
+    name: 'LaserJet High-Yield Premium Black Toner Cartridge',
+    category: 'Admin Supplies',
+    description: 'Professional high-density black toner cartridge for heavy-duty office printers.',
+    unitCost: 65.00,
+    availableQuantity: 18,
+    reorderLevel: 4,
+    vendorName: 'Global Office Supplies Ltd.',
+    status: 'active'
+  },
+  {
+    id: 'STAT-013',
+    name: 'A4 Premium White Printing Paper Carton (5 Reams of 500 Sheets)',
+    category: 'Admin Supplies',
+    description: 'Bulk box containing 5 reams of jam-free ultimate whiteness 80gsm copy paper.',
+    unitCost: 34.50,
+    availableQuantity: 45,
+    reorderLevel: 8,
+    vendorName: 'PaperMills Inc.',
+    status: 'active'
+  },
+  {
+    id: 'STAT-014',
+    name: 'Self-Seal Premium White Office Envelopes (DL Size, Pack of 250)',
+    category: 'Admin Supplies',
+    description: 'Professional executive white envelopes with convenient peel-and-seal strip closure.',
+    unitCost: 18.25,
+    availableQuantity: 35,
+    reorderLevel: 10,
+    vendorName: 'Global Office Supplies Ltd.',
+    status: 'active'
   }
 ];
 
