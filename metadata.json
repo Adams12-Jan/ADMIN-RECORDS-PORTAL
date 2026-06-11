@@ -1,6 +1,6 @@
 {
-  "name": "Stationery Request Portal",
-  "description": "A comprehensive enterprise Stationery Request Management Portal with multi-role dashboards, interactive catalog, inventory management, reports, and role-based access control.",
+  "name": "Inventory Bin Card System",
+  "description": "An online bin card system for tracking stationery catalog inventory records, department allocations, and stockroom level transactions without financial or pricing valuations.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -181,8 +181,10 @@ export default function InventorySection({
                               </span>
                             </div>
                             <div className="text-right font-mono">
-                              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Total Value</p>
-                              <p className="text-sm font-black text-slate-800">{formatCurrency(reqCost)}</p>
+                              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Total Items</p>
+                              <p className="text-sm font-black text-slate-800">
+                                {req.items.reduce((sum, item) => sum + item.quantity, 0)} units
+                              </p>
                             </div>
                           </div>
 

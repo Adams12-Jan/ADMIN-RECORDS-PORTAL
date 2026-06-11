@@ -215,21 +215,21 @@ export default function ApprovalSection({
                           })}
                         </div>
 
-                        {/* Cost threshold warning */}
-                        {reqCost > 150.00 && (
+                        {/* Quantity threshold warning */}
+                        {req.items.reduce((sum, item) => sum + item.quantity, 0) > 40 && (
                           <div className="text-[9.5px] font-bold text-amber-700 bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded-md inline-flex items-center gap-1 animate-pulse">
-                            <AlertCircle className="w-3 h-3" /> Cost exceeds standard pre-approved tier limits ($150.00). Requires thorough justification review.
+                            <AlertCircle className="w-3 h-3" /> Quantity exceeds standard monthly limit threshold (40 units). Requires justification review.
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Right block: total cost and quick actions */}
+                    {/* Right block: total items count and quick actions */}
                     <div className="flex flex-col items-start md:items-end justify-between self-stretch gap-3 border-t md:border-t-0 pt-3 md:pt-0 pl-8 md:pl-0">
                       <div className="text-left md:text-right">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Est. Ticket Cost</span>
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Items Requested</span>
                         <p className="text-base font-extrabold text-slate-800 font-mono tracking-tight">
-                          {formatCurrency(reqCost)}
+                          {req.items.reduce((sum, item) => sum + item.quantity, 0)} units
                         </p>
                       </div>
 
@@ -281,7 +281,7 @@ export default function ApprovalSection({
                     <th className="p-3.5 pl-6">ID Code</th>
                     <th className="p-3.5">Employee</th>
                     <th className="p-3.5">Details Summary</th>
-                    <th className="p-3.5 text-right">Cost</th>
+                    <th className="p-3.5 text-right">Total Qty (Units)</th>
                     <th className="p-3.5 text-center">Status</th>
                     <th className="p-3.5">Review Commentary</th>
                   </tr>
@@ -291,13 +291,13 @@ export default function ApprovalSection({
                     .slice()
                     .sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
                     .map((h) => {
-                      const cost = calculateRequestCost(h);
+                      const totalQty = h.items.reduce((sum, item) => sum + item.quantity, 0);
                       return (
                         <tr key={h.id} className="hover:bg-slate-25/50">
                           <td className="p-3.5 pl-6 font-mono font-bold text-slate-800">{h.id}</td>
                           <td className="p-3.5 font-semibold text-slate-700">{h.userFullName}</td>
                           <td className="p-3.5 font-medium text-slate-500 max-w-xs truncate">{h.justification}</td>
-                          <td className="p-3.5 text-right font-mono font-bold text-slate-800">{formatCurrency(cost)}</td>
+                          <td className="p-3.5 text-right font-mono font-bold text-slate-800">{totalQty} units</td>
                           <td className="p-3.5 text-center">
                             <span
                               className={`inline-block text-[9.5px] font-bold px-2 py-0.5 rounded-full border ${
