@@ -47,18 +47,17 @@ export default function ReportSection({
   const getReportingData = () => {
     switch (reportType) {
       case 'monthly_usage': {
-        const counts: Record<string, { quantity: number; cost: number; items: Set<string> }> = {};
+        const counts: Record<string, { quantity: number; items: Set<string> }> = {};
         fulfilledRequests.forEach(r => {
           const dateObj = new Date(r.createdAt);
           const monthYear = dateObj.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
           if (!counts[monthYear]) {
-            counts[monthYear] = { quantity: 0, cost: 0, items: new Set() };
+            counts[monthYear] = { quantity: 0, items: new Set() };
           }
 
           r.items.forEach(it => {
             counts[monthYear].quantity += it.quantity;
-            counts[monthYear].cost += it.quantity * it.unitCostSnapshot;
             counts[monthYear].items.add(it.itemId);
           });
         });
@@ -67,27 +66,26 @@ export default function ReportSection({
           col1: month,
           col2: `${data.items.size} unique products`,
           col3: `${data.quantity} units requested`,
-          col4: formatCurrency(data.cost),
-          rawCost: data.cost,
-          excelRow: [month, String(data.items.size), String(data.quantity), formatCurrency(data.cost)]
+          col4: 'Fulfillment Audited',
+          rawCost: data.quantity,
+          excelRow: [month, String(data.items.size), String(data.quantity), 'Audited']
         }));
       }
 
       case 'department_consumption': {
-        const counts: Record<string, { quantity: number; cost: number; ticketCount: number }> = {};
+        const counts: Record<string, { quantity: number; ticketCount: number }> = {};
         departments.forEach(d => {
-          counts[d.name] = { quantity: 0, cost: 0, ticketCount: 0 };
+          counts[d.name] = { quantity: 0, ticketCount: 0 };
         });
 
         fulfilledRequests.forEach(r => {
           const deptName = departments.find(d => d.id === r.departmentId)?.name || r.departmentName || 'Other';
           if (!counts[deptName]) {
-            counts[deptName] = { quantity: 0, cost: 0, ticketCount: 0 };
+            counts[deptName] = { quantity: 0, ticketCount: 0 };
           }
           counts[deptName].ticketCount += 1;
           r.items.forEach(it => {
             counts[deptName].quantity += it.quantity;
-            counts[deptName].cost += it.quantity * it.unitCostSnapshot;
           });
         });
 
@@ -95,28 +93,27 @@ export default function ReportSection({
           col1: dept,
           col2: `${data.ticketCount} tickets processed`,
           col3: `${data.quantity} units assigned`,
-          col4: formatCurrency(data.cost),
-          rawCost: data.cost,
-          excelRow: [dept, String(data.ticketCount), String(data.quantity), formatCurrency(data.cost)]
+          col4: 'Department Active',
+          rawCost: data.quantity,
+          excelRow: [dept, String(data.ticketCount), String(data.quantity), 'Active']
         }));
       }
 
       case 'user_request': {
-        const counts: Record<string, { quantity: number; cost: number; requestCount: number; email: string }> = {};
+        const counts: Record<string, { quantity: number; requestCount: number; email: string }> = {};
         users.forEach(u => {
-          counts[u.fullName] = { quantity: 0, cost: 0, requestCount: 0, email: u.email };
+          counts[u.fullName] = { quantity: 0, requestCount: 0, email: u.email };
         });
 
         fulfilledRequests.forEach(r => {
           const userObj = users.find(u => u.id === r.userId);
           const fullName = userObj ? userObj.fullName : r.userFullName;
           if (!counts[fullName]) {
-            counts[fullName] = { quantity: 0, cost: 0, requestCount: 0, email: r.userId };
+            counts[fullName] = { quantity: 0, requestCount: 0, email: r.userId };
           }
           counts[fullName].requestCount += 1;
           r.items.forEach(it => {
             counts[fullName].quantity += it.quantity;
-            counts[fullName].cost += it.quantity * it.unitCostSnapshot;
           });
         });
 
@@ -124,9 +121,9 @@ export default function ReportSection({
           col1: uName,
           col2: data.email,
           col3: `${data.requestCount} orders submitted`,
-          col4: formatCurrency(data.cost),
-          rawCost: data.cost,
-          excelRow: [uName, data.email, String(data.requestCount), formatCurrency(data.cost)]
+          col4: `${data.quantity} units total`,
+          rawCost: data.quantity,
+          excelRow: [uName, data.email, String(data.requestCount), String(data.quantity)]
         }));
       }
 
@@ -145,9 +142,9 @@ export default function ReportSection({
       }
 
       case 'category_breakdown': {
-        const counts: Record<string, { units: number; cost: number; itemsCount: number }> = {};
+        const counts: Record<string, { units: number; itemsCount: number }> = {};
         catalog.forEach(cat => {
-          counts[cat.category] = { units: 0, cost: 0, itemsCount: 0 };
+          counts[cat.category] = { units: 0, itemsCount: 0 };
         });
 
         fulfilledRequests.forEach(r => {
@@ -156,10 +153,9 @@ export default function ReportSection({
             const category = catItem ? catItem.category : 'Other';
 
             if (!counts[category]) {
-              counts[category] = { units: 0, cost: 0, itemsCount: 0 };
+              counts[category] = { units: 0, itemsCount: 0 };
             }
             counts[category].units += it.quantity;
-            counts[category].cost += it.quantity * it.unitCostSnapshot;
             counts[category].itemsCount += 1;
           });
         });
@@ -168,9 +164,9 @@ export default function ReportSection({
           col1: cat,
           col2: `${data.units} total units issued`,
           col3: 'Standard Replenishment Line',
-          col4: formatCurrency(data.cost),
-          rawCost: data.cost,
-          excelRow: [cat, String(data.units), String(data.itemsCount), formatCurrency(data.cost)]
+          col4: `${data.itemsCount} request audits`,
+          rawCost: data.units,
+          excelRow: [cat, String(data.units), String(data.itemsCount)]
         }));
       }
 
@@ -203,15 +199,15 @@ export default function ReportSection({
 
     switch (reportType) {
       case 'monthly_usage':
-        headers = ['Month/Period', 'Procured Products count', 'Total Quantities', 'Standard Valuation'];
+        headers = ['Month/Period', 'Procured Products count', 'Total Quantities', 'Ledger Status'];
         filename = 'monthly_stationery_usage.csv';
         break;
       case 'department_consumption':
-        headers = ['Department Name', 'Approved ticket Count', 'Sum of Quantities', 'Corporate Valuation'];
+        headers = ['Department Name', 'Approved ticket Count', 'Sum of Quantities', 'Status Tag'];
         filename = 'dept_stationery_consumption.csv';
         break;
       case 'user_request':
-        headers = ['Full Name', 'Corporate Email Address', 'Total order Count', 'Financial Total cost'];
+        headers = ['Full Name', 'Corporate Email Address', 'Total order Count', 'Sum units requested'];
         filename = 'user_stationery_reports.csv';
         break;
       case 'inventory_balance':
@@ -219,7 +215,7 @@ export default function ReportSection({
         filename = 'inventory_stationery_evaluation.csv';
         break;
       case 'category_breakdown':
-        headers = ['Product Category', 'Total quantities ordered', 'Total audits count', 'Actual Valuation'];
+        headers = ['Product Category', 'Total quantities ordered', 'Total audits count'];
         filename = 'stationery_category_breakdown.csv';
         break;
       case 'approval_turnaround':
@@ -345,8 +341,13 @@ export default function ReportSection({
                     {reportType === 'category_breakdown' && 'Subtle category type'}
                     {reportType === 'approval_turnaround' && 'Approved signatures'}
                   </th>
-                  <th className="p-3.5 text-right pr-6">
-                    {reportType === 'approval_turnaround' ? 'Avg. turnaround duration' : 'Financial Outlay'}
+                   <th className="p-3.5 text-right pr-6">
+                    {reportType === 'approval_turnaround' && 'Avg. turnaround duration'}
+                    {reportType === 'inventory_balance' && 'Financial Outlay'}
+                    {reportType === 'monthly_usage' && 'Ledger Status'}
+                    {reportType === 'department_consumption' && 'Status Tag'}
+                    {reportType === 'user_request' && 'Sum units requested'}
+                    {reportType === 'category_breakdown' && 'Total audits count'}
                   </th>
                 </tr>
               </thead>
