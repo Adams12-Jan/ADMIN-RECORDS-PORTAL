@@ -18,7 +18,7 @@ import {
   AlertTriangle,
   Receipt
 } from 'lucide-react';
-import { formatCurrency, formatDate } from '../utils/helpers';
+import { formatDate } from '../utils/helpers';
 
 interface InventorySectionProps {
   currentUser: User;
@@ -73,14 +73,6 @@ export default function InventorySection({
       case 'transfer': return 'bg-slate-100 text-slate-700 border-slate-200';
       default: return 'bg-slate-50 text-slate-500';
     }
-  };
-
-  const calculateRequestTotalCost = (req: StationeryRequest) => {
-    return req.items.reduce((sum, item) => {
-      const match = catalog.find((c) => c.id === item.itemId);
-      const cost = item.unitCostSnapshot || (match ? match.unitCost : 0);
-      return sum + (item.quantity * cost);
-    }, 0);
   };
 
   return (
@@ -139,7 +131,6 @@ export default function InventorySection({
             ) : (
               <div className="space-y-4">
                 {dispatchRequests.map((req) => {
-                  const reqCost = calculateRequestTotalCost(req);
                   const isReadyToIssue = req.status === 'approved';
                   const isReadyToComplete = req.status === 'issued';
 

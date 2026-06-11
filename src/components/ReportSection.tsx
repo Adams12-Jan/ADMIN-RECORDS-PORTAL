@@ -129,14 +129,15 @@ export default function ReportSection({
 
       case 'inventory_balance': {
         return catalog.map(item => {
-          const value = item.availableQuantity * item.unitCost;
+          const reorderLimit = item.reorderLevel;
+          const status = item.availableQuantity <= reorderLimit ? 'Low Stock Alert' : 'Healthy Stock';
           return {
             col1: item.id,
             col2: item.name,
             col3: `${item.availableQuantity} in stock`,
-            col4: formatCurrency(value),
-            rawCost: value,
-            excelRow: [item.id, item.name, String(item.availableQuantity), formatCurrency(value)]
+            col4: `Warn Limit: ${reorderLimit} (${status})`,
+            rawCost: item.availableQuantity,
+            excelRow: [item.id, item.name, String(item.availableQuantity), `Warn Limit: ${reorderLimit} (${status})`]
           };
         });
       }
@@ -298,9 +299,9 @@ export default function ReportSection({
               </p>
             </div>
             <div className="pt-3.5 space-y-1">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold text-indigo-600">Actual Outlay (Cost)</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold text-indigo-600">Completed Vouchers</span>
               <p className="text-lg font-mono font-bold text-indigo-600">
-                {formatCurrency(fulfilledRequests.reduce((sum, r) => sum + r.items.reduce((s, i) => s + (i.quantity * i.unitCostSnapshot), 0), 0))}
+                {fulfilledRequests.length} requests
               </p>
             </div>
           </div>
@@ -343,7 +344,7 @@ export default function ReportSection({
                   </th>
                    <th className="p-3.5 text-right pr-6">
                     {reportType === 'approval_turnaround' && 'Avg. turnaround duration'}
-                    {reportType === 'inventory_balance' && 'Financial Outlay'}
+                    {reportType === 'inventory_balance' && 'Stock Status Level'}
                     {reportType === 'monthly_usage' && 'Ledger Status'}
                     {reportType === 'department_consumption' && 'Status Tag'}
                     {reportType === 'user_request' && 'Sum units requested'}

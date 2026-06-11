@@ -17,7 +17,7 @@ import {
   Filter,
   DollarSign
 } from 'lucide-react';
-import { formatCurrency, formatDate } from '../utils/helpers';
+import { formatDate } from '../utils/helpers';
 
 interface ApprovalSectionProps {
   currentUser: User;
@@ -74,16 +74,8 @@ export default function ApprovalSection({
     }
   };
 
-  const calculateRequestCost = (req: StationeryRequest) => {
-    return req.items.reduce((sum, item) => {
-      const match = catalog.find((c) => c.id === item.itemId);
-      const cost = item.unitCostSnapshot || (match ? match.unitCost : 0);
-      return sum + (item.quantity * cost);
-    }, 0);
-  };
-
   const handleSingleApproveSubmit = (id: string) => {
-    const comment = commentsMap[id] || 'Order verified against department budget constraints.';
+    const comment = commentsMap[id] || 'Order verified against department stationery allocation limit.';
     onApproveRequest(id, comment);
     // remove from selection if there
     setSelectedRequestIds(selectedRequestIds.filter(x => x !== id));
@@ -167,7 +159,6 @@ export default function ApprovalSection({
             <div className="divide-y divide-slate-150">
               {departmentPendingRequests.map((req) => {
                 const isChecked = selectedRequestIds.includes(req.id);
-                const reqCost = calculateRequestCost(req);
 
                 return (
                   <div
@@ -227,12 +218,9 @@ export default function ApprovalSection({
                     {/* Right block: total items count and quick actions */}
                     <div className="flex flex-col items-start md:items-end justify-between self-stretch gap-3 border-t md:border-t-0 pt-3 md:pt-0 pl-8 md:pl-0">
                       <div className="text-left md:text-right flex flex-col items-end">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Request Valuation</span>
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Request Quantity</span>
                         <div className="flex items-baseline gap-2 mt-0.5">
-                          <span className="text-xs font-semibold text-slate-500 font-mono">{req.items.reduce((sum, item) => sum + item.quantity, 0)} units</span>
-                          <span className="text-base font-extrabold text-indigo-600 font-mono tracking-tight">
-                            {formatCurrency(reqCost)}
-                          </span>
+                          <span className="text-lg font-extrabold text-indigo-600 font-mono tracking-tight">{req.items.reduce((sum, item) => sum + item.quantity, 0)} units</span>
                         </div>
                       </div>
 
@@ -285,7 +273,6 @@ export default function ApprovalSection({
                     <th className="p-3.5">Employee</th>
                     <th className="p-3.5">Details Summary</th>
                     <th className="p-3.5 text-right">Total Qty</th>
-                    <th className="p-3.5 text-right text-indigo-600 font-bold">Estimated Cost</th>
                     <th className="p-3.5 text-center">Status</th>
                     <th className="p-3.5">Review Commentary</th>
                   </tr>
@@ -296,14 +283,12 @@ export default function ApprovalSection({
                     .sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
                     .map((h) => {
                       const totalQty = h.items.reduce((sum, item) => sum + item.quantity, 0);
-                      const totalCost = calculateRequestCost(h);
                       return (
                         <tr key={h.id} className="hover:bg-slate-25/50">
                           <td className="p-3.5 pl-6 font-mono font-bold text-slate-800">{h.id}</td>
                           <td className="p-3.5 font-semibold text-slate-700">{h.userFullName}</td>
                           <td className="p-3.5 font-medium text-slate-500 max-w-xs truncate">{h.justification}</td>
                           <td className="p-3.5 text-right font-mono font-semibold text-slate-800">{totalQty} units</td>
-                          <td className="p-3.5 text-right font-mono font-bold text-indigo-600">{formatCurrency(totalCost)}</td>
                           <td className="p-3.5 text-center">
                             <span
                               className={`inline-block text-[9.5px] font-bold px-2 py-0.5 rounded-full border ${

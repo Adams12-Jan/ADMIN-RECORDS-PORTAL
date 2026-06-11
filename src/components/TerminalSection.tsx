@@ -252,7 +252,7 @@ export default function TerminalSection({
         }
         setSelectedSku(item.id);
         appendLog(`SUCCESS: Target loaded! Viewing bin card for ${item.name} (${item.id}).`, 'success');
-        appendLog(`  Category: ${item.category} | Unit Cost: ${formatCurrency(item.unitCost)}`, 'list');
+        appendLog(`  Category: ${item.category} | Reorder Trigger: ${item.reorderLevel} units`, 'list');
         appendLog(`  Available stock: ${item.availableQuantity} units (Reorder limit: ${item.reorderLevel} units)`, 'list');
         break;
       }
@@ -663,9 +663,9 @@ export default function TerminalSection({
                   </p>
                 </div>
                 <div className="space-y-0.5 font-mono">
-                  <span className="text-[9.5px] text-slate-400 uppercase font-bold">Standard Unit Cost</span>
+                  <span className="text-[9.5px] text-slate-400 uppercase font-bold">In Stock Status</span>
                   <p className="font-extrabold text-slate-800 font-sans">
-                    {formatCurrency(activeItem.unitCost)}
+                    {activeItem.availableQuantity <= activeItem.reorderLevel ? 'LOW STOCK' : 'ADEQUATE'}
                   </p>
                 </div>
                 <div className="space-y-0.5 font-mono">

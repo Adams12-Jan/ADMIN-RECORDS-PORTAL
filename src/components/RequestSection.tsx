@@ -210,7 +210,7 @@ export default function RequestSection({
                       .filter((c) => c.status === 'active')
                       .map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.name} ({formatCurrency(c.unitCost)} - {c.availableQuantity} available)
+                          {c.name} ({c.availableQuantity} available in stock)
                         </option>
                       ))}
                   </select>
@@ -253,22 +253,17 @@ export default function RequestSection({
                         <th className="p-2.5 pl-4">Item Code</th>
                         <th className="p-2.5">Name</th>
                         <th className="p-2.5 text-center">Qty</th>
-                        <th className="p-2.5 text-right w-24">Est. Cost</th>
                         <th className="p-2.5 text-center w-12">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-150 bg-white">
                       {selectedItems.map((item) => {
                         const product = catalog.find((c) => c.id === item.itemId);
-                        const rowCost = (product ? product.unitCost : 0) * item.quantity;
                         return (
                           <tr key={item.itemId} className="hover:bg-slate-25">
                             <td className="p-2.5 pl-4 font-mono font-bold text-slate-500">{item.itemId}</td>
                             <td className="p-2.5 font-semibold text-slate-700">{product ? product.name : 'Unknown'}</td>
                             <td className="p-2.5 text-center font-mono font-semibold text-slate-800">{item.quantity}</td>
-                            <td className="p-2.5 text-right font-mono font-bold text-slate-800">
-                              {formatCurrency(rowCost)}
-                            </td>
                             <td className="p-2.5 text-center">
                               <button
                                 type="button"
@@ -282,9 +277,9 @@ export default function RequestSection({
                         );
                       })}
                       <tr className="bg-slate-50 font-bold text-slate-800 border-t border-slate-200">
-                        <td colSpan={3} className="p-3 pl-4 text-right uppercase tracking-wider font-bold">Total Estimate</td>
-                        <td className="p-3 text-right font-mono text-sm font-bold text-indigo-600">
-                          {formatCurrency(calculateTotalCost(selectedItems))}
+                        <td colSpan={2} className="p-3 pl-4 text-right uppercase tracking-wider font-bold">Total Allocation Items</td>
+                        <td className="p-3 text-center font-mono text-sm font-bold text-indigo-600">
+                          {selectedItems.reduce((acc, current) => acc + current.quantity, 0)} units
                         </td>
                         <td></td>
                       </tr>
@@ -398,7 +393,6 @@ export default function RequestSection({
                         <th className="p-3.5 pl-6">ID Voucher</th>
                         <th className="p-3.5">Details / Purpose</th>
                         <th className="p-3.5">Total Quantity</th>
-                        <th className="p-3.5 text-right text-indigo-600 font-bold">Estimated Cost</th>
                         <th className="p-3.5 pl-6">Status Timeline</th>
                         <th className="p-3.5 text-center">Action</th>
                       </tr>
@@ -407,7 +401,6 @@ export default function RequestSection({
                       {userRequests.map((req) => {
                         const totalUnits = req.items.reduce((sum, i) => sum + i.quantity, 0);
                         const stepIdx = getStatusStepIndex(req.status);
-                        const totalCost = calculateRequestTotalCost(req.items);
 
                         const getStatusStyle = (status: string) => {
                           switch (status) {
@@ -439,9 +432,6 @@ export default function RequestSection({
                               <p className="text-slate-600 line-clamp-1 truncate max-w-xs mt-0.5 font-medium">{req.justification}</p>
                             </td>
                             <td className="p-3.5 font-mono text-slate-500 font-semibold">{totalUnits} units</td>
-                            <td className="p-3.5 text-right font-mono font-bold text-slate-800">
-                              {formatCurrency(totalCost)}
-                            </td>
                             <td className="p-3.5 pl-6">
                               <div className="flex items-center gap-1.5">
                                 <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider ${getStatusStyle(req.status)}`}>
@@ -497,14 +487,12 @@ export default function RequestSection({
                         <th className="p-3.5 pl-6">ID Reference</th>
                         <th className="p-3.5">Details</th>
                         <th className="p-3.5">Total Quantity</th>
-                        <th className="p-3.5 text-right w-24 text-indigo-600 font-bold">Estimated Cost</th>
                         <th className="p-3.5 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-150">
                       {userDrafts.map((draft) => {
                         const totalUnits = draft.items.reduce((sum, i) => sum + i.quantity, 0);
-                        const draftCost = calculateRequestTotalCost(draft.items);
 
                         return (
                           <tr key={draft.id} className="hover:bg-slate-25/50">
@@ -514,9 +502,6 @@ export default function RequestSection({
                               <p className="text-slate-500 line-clamp-1 max-w-sm font-medium">{draft.justification}</p>
                             </td>
                             <td className="p-3.5 text-slate-500 font-mono font-semibold">{totalUnits} units</td>
-                            <td className="p-3.5 text-right font-bold text-slate-800 font-mono">
-                              {formatCurrency(draftCost)}
-                            </td>
                             <td className="p-3.5 text-center space-x-2">
                               <button
                                 onClick={() => handleLoadDraft(draft)}
