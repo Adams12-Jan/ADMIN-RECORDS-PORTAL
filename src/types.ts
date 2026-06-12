@@ -115,3 +115,41 @@ export interface SystemConfig {
   primaryColor?: string;
   portalLogoUrl?: string;
 }
+
+export type MemoStage =
+  | 'draft'
+  | 'pending_head_admin'
+  | 'pending_internal_control'
+  | 'pending_md'
+  | 'pending_finance'
+  | 'completed'
+  | 'rejected';
+
+export interface MemoHistoryEntry {
+  id: string;
+  stage: MemoStage;
+  action: 'create' | 'submit' | 'approve' | 'reject' | 'forward';
+  userId: string;
+  userFullName: string;
+  userRole: string;
+  comments: string;
+  timestamp: string;
+}
+
+export interface Memo {
+  id: string; // MEMO-YYYY-XXXX
+  title: string;
+  content: string;
+  initiatorId: string;
+  initiatorName: string;
+  initiatorEmail: string;
+  departmentId: string;
+  amount: number;
+  currentStage: MemoStage;
+  createdAt: string;
+  updatedAt: string;
+  history: MemoHistoryEntry[];
+  attachmentName?: string;
+  justification?: string;
+}
+

@@ -1,0 +1,256 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Primitives & Security Validators
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Checks if the database is unseeded (default systemConfig document does not exist yet)
+    function isUnseeded() {
+      return !exists(/databases/$(database)/documents/systemConfig/default);
+    }
+
+    function hasUserDoc(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid));
+    }
+
+    // Checking roles via explicit document lookup matching either static seed or active anonymous simulator sessions
+    function getUserRole(uid) {
+      return hasUserDoc(uid) ? get(/databases/$(database)/documents/users/$(uid)).data.role : 'guest';
+    }
+
+    function getUserDept(uid) {
+      return hasUserDoc(uid) ? get(/databases/$(database)/documents/users/$(uid)).data.departmentId : 'none';
+    }
+
+    function isAdmin(uid) {
+      return getUserRole(uid) == 'admin' || getUserRole(uid) == 'super_admin';
+    }
+
+    function isApprover(uid) {
+      return getUserRole(uid) == 'approver' || isAdmin(uid);
+    }
+
+    // ------------------ ENTITY SCHEMAS & SHAPES ------------------
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email', 'fullName', 'role', 'departmentId', 'status'])
+        && data.keys().size() <= 8
+        && data.id is string && data.id.size() <= 128
+        && data.email is string && data.email.size() <= 128 && data.email.size() > 5
+        && data.fullName is string && data.fullName.size() <= 128 && data.fullName.size() > 1
+        && data.role in ['employee', 'approver', 'admin', 'super_admin']
+        && data.departmentId is string && data.departmentId.size() <= 128
+        && data.status in ['active', 'inactive']
+        && (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1024));
+    }
+
+    function isValidDepartment(data) {
+      return data.keys().hasAll(['id', 'name', 'code', 'headUserId'])
+        && data.keys().size() == 4
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 128
+        && data.code is string && data.code.size() <= 32
+        && data.headUserId is string && data.headUserId.size() <= 128;
+    }
+
+    function isValidStationeryItem(data) {
+      return data.keys().hasAll(['id', 'name', 'category', 'description', 'unitCost', 'availableQuantity', 'reorderLevel', 'vendorName', 'status'])
+        && data.keys().size() == 9
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 128
+        && data.category is string && data.category.size() <= 128
+        && data.description is string && data.description.size() <= 1024
+        && data.unitCost is number
+        && data.availableQuantity is number
+        && data.reorderLevel is number
+        && data.vendorName is string && data.vendorName.size() <= 128
+        && data.status in ['active', 'inactive'];
+    }
+
+    function isValidStationeryRequest(data) {
+      return data.keys().hasAll(['id', 'userId', 'userFullName', 'departmentId', 'departmentName', 'items', 'justification', 'status', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.userFullName is string && data.userFullName.size() <= 128
+        && data.departmentId is string && data.departmentId.size() <= 128
+        && data.departmentName is string && data.departmentName.size() <= 128
+        && data.items is list && data.items.size() <= 100
+        && data.justification is string && data.justification.size() <= 1024
+        && data.status in ['draft', 'submitted', 'pending_approval', 'approved', 'rejected', 'issued', 'completed']
+        && data.createdAt is string
+        && data.updatedAt is string;
+    }
+
+    function isValidInventoryTransaction(data) {
+      return data.keys().hasAll(['id', 'itemId', 'type', 'quantity', 'reason', 'createdAt', 'userId'])
+        && data.keys().size() <= 8
+        && data.id is string && data.id.size() <= 128
+        && data.itemId is string && data.itemId.size() <= 128
+        && data.type in ['stock_in', 'stock_out', 'adjustment', 'transfer']
+        && data.quantity is number
+        && data.reason is string && data.reason.size() <= 1000
+        && data.createdAt is string
+        && data.userId is string && data.userId.size() <= 128;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['id', 'userId', 'userFullName', 'userRole', 'action', 'details', 'ipAddress', 'createdAt'])
+        && data.keys().size() == 8
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.userFullName is string && data.userFullName.size() <= 128
+        && data.userRole is string && data.userRole.size() <= 32
+        && data.action is string && data.action.size() <= 128
+        && data.details is string && data.details.size() <= 2048
+        && data.ipAddress is string && data.ipAddress.size() <= 64
+        && data.createdAt is string;
+    }
+
+    function isValidAppNotification(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'message', 'type', 'isRead', 'createdAt'])
+        && data.keys().size() == 7
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.title is string && data.title.size() <= 128
+        && data.message is string && data.message.size() <= 512
+        && data.type in ['info', 'warning', 'success', 'danger']
+        && data.isRead is bool
+        && data.createdAt is string;
+    }
+
+    function isValidSystemConfig(data) {
+      return data.keys().hasAll(['requireAttachmentAboveCost', 'lowStockAlertEmail', 'autoApproveBelowCost', 'enforceStockLevels', 'allowEmployeeDirectSourcing'])
+        && data.requireAttachmentAboveCost is number
+        && data.lowStockAlertEmail is string && data.lowStockAlertEmail.size() <= 128
+        && data.autoApproveBelowCost is number
+        && data.enforceStockLevels is bool
+        && data.allowEmployeeDirectSourcing is bool;
+    }
+
+    function isValidMemo(data) {
+      return data.keys().hasAll(['id', 'title', 'content', 'initiatorId', 'initiatorName', 'initiatorEmail', 'departmentId', 'amount', 'currentStage', 'history', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 256
+        && data.content is string && data.content.size() <= 10000
+        && data.initiatorId is string && data.initiatorId.size() <= 128
+        && data.initiatorName is string && data.initiatorName.size() <= 128
+        && data.initiatorEmail is string && data.initiatorEmail.size() <= 128
+        && data.departmentId is string && data.departmentId.size() <= 128
+        && data.amount is number
+        && data.currentStage in ['draft', 'pending_head_admin', 'pending_internal_control', 'pending_md', 'pending_finance', 'completed', 'rejected']
+        && data.history is list
+        && data.createdAt is string
+        && data.updatedAt is string;
+    }
+
+    // ------------------ COLLECTION MATCH BLOCKS ------------------
+
+    // Users Collection rules
+    match /users/{userId} {
+      allow get: if isSignedIn() || isUnseeded();
+      allow list: if isSignedIn() || isUnseeded();
+      allow create, update: if isUnseeded() || (isSignedIn() && isValidId(userId) && isValidUser(incoming()) && (
+        request.auth.uid == userId || isAdmin(request.auth.uid)
+      ));
+      allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid));
+    }
+
+    // Departments Collection rules
+    match /departments/{deptId} {
+      allow read: if isSignedIn() || isUnseeded();
+      allow write: if isUnseeded() || (isSignedIn() && isValidId(deptId) && isAdmin(request.auth.uid) && (request.method != 'DELETE' ? isValidDepartment(incoming()) : true));
+    }
+
+    // Catalog Stationery Items rules
+    match /catalog/{itemId} {
+      allow read: if isSignedIn() || isUnseeded();
+      allow write: if isUnseeded() || (isSignedIn() && isValidId(itemId) && isAdmin(request.auth.uid) && (request.method != 'DELETE' ? isValidStationeryItem(incoming()) : true));
+    }
+
+    // Stationery Requests rules
+    match /requests/{requestId} {
+      allow read: if isSignedIn() || isUnseeded();
+      allow create: if isUnseeded() || (isSignedIn() && isValidId(requestId) && isValidStationeryRequest(incoming()) && (
+        getUserRole(request.auth.uid) == 'employee' || isAdmin(request.auth.uid)
+      ));
+      allow update: if isSignedIn() && isValidId(requestId) && isValidStationeryRequest(incoming()) && (
+        incoming().userId == request.auth.uid || 
+        getUserRole(request.auth.uid) == 'employee' || 
+        isApprover(request.auth.uid) || 
+        isAdmin(request.auth.uid)
+      );
+      allow delete: if isSignedIn() && (
+        existing().userId == request.auth.uid || 
+        isAdmin(request.auth.uid) || 
+        getUserRole(request.auth.uid) == 'employee'
+      );
+    }
+
+    // Inventory Transactions rules
+    match /transactions/{txId} {
+      allow read: if isSignedIn() || isUnseeded();
+      allow create: if isUnseeded() || (isSignedIn() && isValidId(txId) && isValidInventoryTransaction(incoming()) && (
+        getUserRole(request.auth.uid) == 'employee' || isAdmin(request.auth.uid)
+      ));
+      allow update, delete: if false; // Transactions are immutable ledger trails
+    }
+
+    // System Audit Logs rules
+    match /auditLogs/{logId} {
+      allow read: if isUnseeded() || (isSignedIn() && (isAdmin(request.auth.uid) || isUnseeded()));
+      allow create: if isUnseeded() || (isSignedIn() && isValidId(logId) && isValidAuditLog(incoming()));
+      allow update, delete: if false; // Audit logs are immutable audit audits
+    }
+
+    // Notifications rules
+    match /notifications/{ntfId} {
+      allow read: if isSignedIn() || isUnseeded();
+      allow create: if isUnseeded() || (isSignedIn() && isValidId(ntfId) && isValidAppNotification(incoming()));
+      allow update: if isSignedIn() && isValidId(ntfId) && isValidAppNotification(incoming()) && (
+        existing().userId == request.auth.uid || 
+        incoming().userId == request.auth.uid || 
+        isAdmin(request.auth.uid) ||
+        getUserRole(request.auth.uid) == 'employee' ||
+        getUserRole(request.auth.uid) == 'approver'
+      );
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin(request.auth.uid));
+    }
+
+    // System config configuration match
+    match /systemConfig/{configId} {
+      allow read: if true; // Publicly readable configs (required for pre-login layout parameters)
+      allow write: if isUnseeded() || (isSignedIn() && isValidId(configId) && isAdmin(request.auth.uid) && (request.method != 'DELETE' ? isValidSystemConfig(incoming()) : true));
+    }
+
+    // Automated 5-tier Memo workflow rules
+    match /memos/{memoId} {
+      allow read: if isSignedIn() || isUnseeded();
+      allow write: if isUnseeded() || (isSignedIn() && isValidId(memoId) && isValidMemo(incoming()) && (
+        incoming().initiatorId == request.auth.uid || 
+        getUserRole(request.auth.uid) == 'employee' || 
+        isApprover(request.auth.uid) || 
+        isAdmin(request.auth.uid)
+      ));
+    }
+  }
+}

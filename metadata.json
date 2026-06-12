@@ -1,6 +1,6 @@
 {
-  "name": "Vetiva Stores & Bin Card Portal",
-  "description": "An online bin card system for tracking stationery catalog inventory records, department allocations, and stockroom level transactions without financial or pricing valuations.",
+  "name": "Vetiva Admin Services & Automated Memo Workspace",
+  "description": "Enterprise administration portal featuring catalog inventory management, stockroom dispatches, and an automated 5-tier sequential approval workflow for corporate memos.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

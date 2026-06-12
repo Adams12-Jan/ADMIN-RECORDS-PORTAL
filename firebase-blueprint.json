@@ -1,0 +1,233 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role, department, and active status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID matching Auth UID" },
+        "email": { "type": "string", "description": "Email address of the user" },
+        "fullName": { "type": "string", "description": "Display name of the user" },
+        "role": { "type": "string", "enum": ["employee", "approver", "admin", "super_admin"] },
+        "departmentId": { "type": "string", "description": "Reference to the Department ID" },
+        "avatarUrl": { "type": "string", "description": "Optional profile photo URL" },
+        "status": { "type": "string", "enum": ["active", "inactive"] }
+      },
+      "required": ["id", "email", "fullName", "role", "departmentId", "status"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "Company department info",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique department identifier" },
+        "name": { "type": "string", "description": "Full name of department" },
+        "code": { "type": "string", "description": "Department clean code" },
+        "headUserId": { "type": "string", "description": "UID of the department manager" }
+      },
+      "required": ["id", "name", "code", "headUserId"]
+    },
+    "StationeryItem": {
+      "title": "StationeryItem",
+      "description": "Item in the store catalog",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Item sku code" },
+        "name": { "type": "string", "description": "Display name of item" },
+        "category": { "type": "string", "description": "Category folder eg stationery, computer gear" },
+        "description": { "type": "string", "description": "Item extended description" },
+        "unitCost": { "type": "number", "description": "Acquisition cost per unit" },
+        "availableQuantity": { "type": "number", "description": "Stocks on shelf count" },
+        "reorderLevel": { "type": "number", "description": "Reordering low threshold trigger" },
+        "vendorName": { "type": "string", "description": "Affiliated master vendor name" },
+        "status": { "type": "string", "enum": ["active", "inactive"] }
+      },
+      "required": ["id", "name", "category", "description", "unitCost", "availableQuantity", "reorderLevel", "vendorName", "status"]
+    },
+    "RequestItem": {
+      "title": "RequestItem",
+      "description": "A single requisition line item",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unitCostSnapshot": { "type": "number" }
+      },
+      "required": ["itemId", "quantity", "unitCostSnapshot"]
+    },
+    "StationeryRequest": {
+      "title": "StationeryRequest",
+      "description": "A requisition ticket or voucher request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Clean request voucher code" },
+        "userId": { "type": "string", "description": "Requester UID" },
+        "userFullName": { "type": "string" },
+        "departmentId": { "type": "string" },
+        "departmentName": { "type": "string" },
+        "items": { "type": "array", "description": "List of requested stationery items and counts" },
+        "justification": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "submitted", "pending_approval", "approved", "rejected", "issued", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "approvalComment": { "type": "string" },
+        "approvedByUserId": { "type": "string" },
+        "approvedAt": { "type": "string" },
+        "issuedByUserId": { "type": "string" },
+        "issuedAt": { "type": "string" },
+        "completedAt": { "type": "string" },
+        "rejectedByUserId": { "type": "string" },
+        "rejectedAt": { "type": "string" },
+        "supportAttachmentName": { "type": "string" }
+      },
+      "required": ["id", "userId", "userFullName", "departmentId", "departmentName", "items", "justification", "status", "createdAt", "updatedAt"]
+    },
+    "InventoryTransaction": {
+      "title": "InventoryTransaction",
+      "description": "Stock ledger transaction record log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "itemId": { "type": "string" },
+        "type": { "type": "string", "enum": ["stock_in", "stock_out", "adjustment", "transfer"] },
+        "quantity": { "type": "number" },
+        "referenceId": { "type": "string" },
+        "reason": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "itemId", "type", "quantity", "reason", "createdAt", "userId"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Admin system logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userFullName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "ipAddress": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "userFullName", "userRole", "action", "details", "ipAddress", "createdAt"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "In-app system notifications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "warning", "success", "danger"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "message", "type", "isRead", "createdAt"]
+    },
+    "SystemConfig": {
+      "title": "SystemConfig",
+      "description": "System control parameters",
+      "type": "object",
+      "properties": {
+        "requireAttachmentAboveCost": { "type": "number" },
+        "lowStockAlertEmail": { "type": "string" },
+        "autoApproveBelowCost": { "type": "number" },
+        "enforceStockLevels": { "type": "boolean" },
+        "allowEmployeeDirectSourcing": { "type": "boolean" },
+        "portalName": { "type": "string" },
+        "portalSubtitle": { "type": "string" },
+        "announcementText": { "type": "string" },
+        "primaryColor": { "type": "string" },
+        "portalLogoUrl": { "type": "string" }
+      },
+      "required": [
+        "requireAttachmentAboveCost",
+        "lowStockAlertEmail",
+        "autoApproveBelowCost",
+        "enforceStockLevels",
+        "allowEmployeeDirectSourcing"
+      ]
+    },
+    "MemoHistoryEntry": {
+      "title": "MemoHistoryEntry",
+      "description": "An entry representing an action in the memo approval trail",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "stage": { "type": "string", "enum": ["draft", "pending_head_admin", "pending_internal_control", "pending_md", "pending_finance", "completed", "rejected"] },
+        "action": { "type": "string", "enum": ["create", "submit", "approve", "reject", "forward"] },
+        "userId": { "type": "string" },
+        "userFullName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "comments": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "stage", "action", "userId", "userFullName", "userRole", "comments", "timestamp"]
+    },
+    "Memo": {
+      "title": "Memo",
+      "description": "An administrative memo or payment requisition traversing the automated 5-tier approval hierarchy",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Memo code identifier" },
+        "title": { "type": "string", "description": "Subject title" },
+        "content": { "type": "string", "description": "Main body text" },
+        "initiatorId": { "type": "string", "description": "UID of the Admin Assistant / Initiator" },
+        "initiatorName": { "type": "string" },
+        "initiatorEmail": { "type": "string" },
+        "departmentId": { "type": "string" },
+        "amount": { "type": "number", "description": "Requisition financial value if any" },
+        "currentStage": { "type": "string", "enum": ["draft", "pending_head_admin", "pending_internal_control", "pending_md", "pending_finance", "completed", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "history": { "type": "array", "description": "Ordered trail of approval workflow items" },
+        "attachmentName": { "type": "string" },
+        "justification": { "type": "string" }
+      },
+      "required": ["id", "title", "content", "initiatorId", "initiatorName", "initiatorEmail", "departmentId", "amount", "currentStage", "history", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Store users registered in the portal"
+    },
+    "departments": {
+      "schema": "Department",
+      "description": "Department structures"
+    },
+    "catalog": {
+      "schema": "StationeryItem",
+      "description": "Stationery custom catalog"
+    },
+    "requests": {
+      "schema": "StationeryRequest",
+      "description": "Staff stationery voucher requests"
+    },
+    "transactions": {
+      "schema": "InventoryTransaction",
+      "description": "Inventory ledger audit entries"
+    },
+    "auditLogs": {
+      "schema": "AuditLog",
+      "description": "System events logging audit trail"
+    },
+    "notifications": {
+      "schema": "AppNotification",
+      "description": "Targeted notifications"
+    },
+    "systemConfig": {
+      "schema": "SystemConfig",
+      "description": "Global settings document"
+    },
+    "memos": {
+      "schema": "Memo",
+      "description": "Administrative memo documents traversing the automated 5-tier workflow"
+    }
+  }
+}

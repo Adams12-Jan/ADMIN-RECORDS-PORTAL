@@ -4,6 +4,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { signInAnonymously } from 'firebase/auth';
+import { collection, onSnapshot, getDocs } from 'firebase/firestore';
+import { db, auth, writeToFirestore, deleteFromFirestore, OperationType } from './lib/firebase';
 import {
   User,
   Department,
@@ -13,7 +16,8 @@ import {
   AuditLog,
   AppNotification,
   SystemConfig,
-  UserRole
+  UserRole,
+  Memo
 } from './types';
 import {
   INITIAL_USERS,
@@ -43,6 +47,8 @@ import ReportSection from './components/ReportSection';
 import SystemControlPanel from './components/SystemControlPanel';
 import ProfileSection from './components/ProfileSection';
 import TerminalSection from './components/TerminalSection';
+import LandingPage from './components/LandingPage';
+import MemoHubSection from './components/MemoHubSection';
 
 // Icons
 import {
@@ -64,7 +70,8 @@ import {
   AlertTriangle,
   Menu,
   Terminal,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 
 export default function App() {
@@ -117,6 +124,196 @@ export default function App() {
     return savedUser ? savedUser : gideon;
   });
 
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => loadState('stationery_logged_in', false));
+  const [memos, setMemos] = useState<Memo[]>(() => loadState('stationery_memos', []));
+
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    // Authenticate anonymously to facilitate secure Firestore transactions
+    signInAnonymously(auth)
+      .then(() => {
+        setAuthReady(true);
+      })
+      .catch((err) => {
+        console.warn("Auth initial login custom warning (typical if offline or blocked):", err);
+        // Resilient fallback for offline support
+        setAuthReady(true);
+      });
+  }, []);
+
+  // Synchronize active simulator session profile with Firestore
+  useEffect(() => {
+    if (!authReady || !auth.currentUser) return;
+    
+    const syncProfile = async () => {
+      const uid = auth.currentUser!.uid;
+      const profileDoc = {
+        id: uid,
+        email: `${uid}@anonymous.com`,
+        fullName: currentUser.fullName,
+        role: currentUser.role,
+        departmentId: currentUser.departmentId,
+        status: 'active' as const,
+        avatarUrl: currentUser.avatarUrl || ''
+      };
+      
+      try {
+        await writeToFirestore('users', uid, profileDoc, OperationType.UPDATE);
+      } catch (err) {
+        console.warn("Failed to synchronize active simulator profile:", err);
+      }
+    };
+    
+    syncProfile();
+  }, [authReady, currentUser]);
+
+  useEffect(() => {
+    if (!authReady) return;
+
+    // Seeding function to populate empty Firestore collections safely in a single batch-like workflow
+    const seedFirebaseData = async () => {
+      try {
+        console.log("Checking if Firestore database is unseeded...");
+        const configRef = collection(db, 'systemConfig');
+        const configSnap = await getDocs(configRef);
+        const hasConfig = configSnap.docs.some(d => d.id === 'default');
+
+        if (!hasConfig) {
+          console.log("Firestore database is unseeded. Initializing seed data...");
+
+          // 1. Seed users
+          console.log("Seeding users...");
+          for (const u of users) {
+            console.log(`Writing user: ${u.id}`);
+            await writeToFirestore('users', u.id, u, OperationType.CREATE);
+          }
+
+          // 2. Seed departments
+          console.log("Seeding departments...");
+          for (const d of departments) {
+            console.log(`Writing department: ${d.id}`);
+            await writeToFirestore('departments', d.id, d, OperationType.CREATE);
+          }
+
+          // 3. Seed catalog
+          console.log("Seeding catalog...");
+          for (const item of catalog) {
+            console.log(`Writing catalog item: ${item.id}`);
+            await writeToFirestore('catalog', item.id, item, OperationType.CREATE);
+          }
+
+          // 4. Seed requests
+          console.log("Seeding requests...");
+          for (const r of requests) {
+            console.log(`Writing request: ${r.id}`);
+            await writeToFirestore('requests', r.id, r, OperationType.CREATE);
+          }
+
+          // 5. Seed transactions
+          console.log("Seeding transactions...");
+          for (const tx of transactions) {
+            console.log(`Writing transaction: ${tx.id}`);
+            await writeToFirestore('transactions', tx.id, tx, OperationType.CREATE);
+          }
+
+          // 6. Seed auditLogs
+          console.log("Seeding auditLogs...");
+          for (const log of auditLogs) {
+             console.log(`Writing auditLog: ${log.id}`);
+             await writeToFirestore('auditLogs', log.id, log, OperationType.CREATE);
+          }
+
+          // 7. Seed notifications
+          console.log("Seeding notifications...");
+          for (const n of notifications) {
+             console.log(`Writing notification: ${n.id}`);
+             await writeToFirestore('notifications', n.id, n, OperationType.CREATE);
+          }
+
+          // 8. Seed config (written last, sealing the "unseeded" window as a lock field)
+          console.log("Writing systemConfig 'default' lock document...");
+          await writeToFirestore('systemConfig', 'default', systemConfig, OperationType.CREATE);
+
+          console.log("Firestore database seeded successfully!");
+        } else {
+          console.log("Firestore database already seeded.");
+        }
+      } catch (err) {
+        console.error("Firestore seeding failed; typical for restricted custom rules:", err);
+      }
+    };
+
+    seedFirebaseData();
+
+    // Setup active listeners
+    const unsubConfig = onSnapshot(collection(db, 'systemConfig'), (snapshot) => {
+      const found = snapshot.docs.find(d => d.id === 'default');
+      if (found) setSystemConfig(found.data() as SystemConfig);
+    }, (err) => console.warn("Sync err on config:", err));
+
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const list: User[] = [];
+      snapshot.forEach(doc => list.push(doc.data() as User));
+      if (list.length > 0) setUsers(list);
+    }, (err) => console.warn("Sync err on users:", err));
+
+    const unsubDepts = onSnapshot(collection(db, 'departments'), (snapshot) => {
+      const list: Department[] = [];
+      snapshot.forEach(doc => list.push(doc.data() as Department));
+      if (list.length > 0) setDepartments(list);
+    }, (err) => console.warn("Sync err on departments:", err));
+
+    const unsubCatalog = onSnapshot(collection(db, 'catalog'), (snapshot) => {
+      const list: StationeryItem[] = [];
+      snapshot.forEach(doc => list.push(doc.data() as StationeryItem));
+      if (list.length > 0) setCatalog(list);
+    }, (err) => console.warn("Sync err on catalog:", err));
+
+    const unsubRequests = onSnapshot(collection(db, 'requests'), (snapshot) => {
+      const list: StationeryRequest[] = [];
+      snapshot.forEach(doc => list.push(doc.data() as StationeryRequest));
+      if (list.length > 0) setRequests(list);
+    }, (err) => console.warn("Sync err on requests:", err));
+
+    const unsubTransactions = onSnapshot(collection(db, 'transactions'), (snapshot) => {
+      const list: InventoryTransaction[] = [];
+      snapshot.forEach(doc => list.push(doc.data() as InventoryTransaction));
+      if (list.length > 0) setTransactions(list);
+    }, (err) => console.warn("Sync err on transactions:", err));
+
+    const unsubAuditLogs = onSnapshot(collection(db, 'auditLogs'), (snapshot) => {
+      const list: AuditLog[] = [];
+      snapshot.forEach(doc => list.push(doc.data() as AuditLog));
+      if (list.length > 0) setAuditLogs(list);
+    }, (err) => console.warn("Sync err on auditLogs:", err));
+
+    const unsubNotifications = onSnapshot(collection(db, 'notifications'), (snapshot) => {
+      const list: AppNotification[] = [];
+      snapshot.forEach(doc => list.push(doc.data() as AppNotification));
+      if (list.length > 0) setNotifications(list);
+    }, (err) => console.warn("Sync err on notifications:", err));
+
+    const unsubMemos = onSnapshot(collection(db, 'memos'), (snapshot) => {
+      const list: Memo[] = [];
+      snapshot.forEach(doc => list.push(doc.data() as Memo));
+      if (list.length > 0) setMemos(list);
+    }, (err) => console.warn("Sync err on memos:", err));
+
+    return () => {
+      unsubConfig();
+      unsubUsers();
+      unsubDepts();
+      unsubCatalog();
+      unsubRequests();
+      unsubTransactions();
+      unsubAuditLogs();
+      unsubNotifications();
+      unsubMemos();
+    };
+
+  }, [authReady]);
+
   // Current tab state
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
@@ -164,6 +361,14 @@ export default function App() {
     saveState('stationery_active_user', currentUser);
   }, [currentUser]);
 
+  useEffect(() => {
+    saveState('stationery_logged_in', isLoggedIn);
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    saveState('stationery_memos', memos);
+  }, [memos]);
+
   // Toast Stockroom check logic
   const lowStockCount = catalog.filter(i => i.status === 'active' && i.availableQuantity <= i.reorderLevel).length;
 
@@ -179,9 +384,108 @@ export default function App() {
     setSidebarOpen(false);
   };
 
+  // Automated 5-stage Memo approval handlers
+  const handleAddMemo = async (newMemoData: Omit<Memo, 'id' | 'createdAt' | 'updatedAt' | 'history'>) => {
+    const newId = `MEMO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newMemo: Memo = {
+      ...newMemoData,
+      id: newId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      history: [
+        {
+          id: `STEP-${Date.now()}`,
+          stage: 'draft',
+          action: 'create',
+          userId: currentUser.id,
+          userFullName: currentUser.fullName,
+          userRole: currentUser.role,
+          comments: 'Memo draft submitted to Head of Admin.',
+          timestamp: new Date().toISOString()
+        }
+      ]
+    };
+
+    setMemos(prev => [newMemo, ...prev]);
+    await writeToFirestore('memos', newId, newMemo, OperationType.CREATE);
+
+    // Notify David (Head of Admin)
+    const adminNotification: AppNotification = {
+      id: `NTF-${Date.now()}`,
+      userId: 'USR-002', // David's user ID
+      title: 'New Memo Review Request',
+      message: `A new administrative memo (${newId}) is pending your approval: "${newMemo.title}"`,
+      type: 'info',
+      isRead: false,
+      createdAt: new Date().toISOString()
+    };
+    setNotifications(prev => [adminNotification, ...prev]);
+    await writeToFirestore('notifications', adminNotification.id, adminNotification, OperationType.CREATE);
+
+    // Audit Log
+    const audit = createAuditLog(currentUser, 'MEMO_INITIATED', `Initiated 5-stage approval memo ${newId}: ${newMemo.title}`);
+    setAuditLogs(prev => [audit, ...prev]);
+    await writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
+  };
+
+  const handleUpdateMemo = async (updatedMemo: Memo) => {
+    setMemos(prev => prev.map(m => m.id === updatedMemo.id ? updatedMemo : m));
+    await writeToFirestore('memos', updatedMemo.id, updatedMemo, OperationType.UPDATE);
+
+    const nextStage = updatedMemo.currentStage;
+    let targetUserId = '';
+    let notificationTitle = 'Pending Memo Action';
+    let notificationText = '';
+
+    if (nextStage === 'pending_internal_control') {
+      targetUserId = 'USR-003'; // Alex Carter
+      notificationText = `Memo ${updatedMemo.id} approved by Admin. Awaiting Internal Control auditing.`;
+    } else if (nextStage === 'pending_md') {
+      targetUserId = 'USR-004'; // Samantha Sterling
+      notificationText = `Memo ${updatedMemo.id} cleared Internal Control. Awaiting Managing Director signature.`;
+    } else if (nextStage === 'pending_finance') {
+      targetUserId = 'USR-006'; // Sarah Jenkins
+      notificationText = `Managing Director approved Memo ${updatedMemo.id}. Standing by for Finance payout.`;
+    } else if (nextStage === 'completed') {
+      targetUserId = updatedMemo.initiatorId; // Notify initiator
+      notificationTitle = 'Memo Approved & Disbursed! ₦';
+      notificationText = `Memo ${updatedMemo.id} completed. Finance has released the requisition funds.`;
+    } else if (nextStage === 'rejected') {
+      targetUserId = updatedMemo.initiatorId; // Notify initiator
+      notificationTitle = 'Memo REJECTED ✗';
+      notificationText = `Attention: Memo ${updatedMemo.id} has been rejected by workflow authority.`;
+    }
+
+    if (targetUserId) {
+      const nextNtf: AppNotification = {
+        id: `NTF-${Date.now()}`,
+        userId: targetUserId,
+        title: notificationTitle,
+        message: notificationText,
+        type: nextStage === 'completed' ? 'success' : nextStage === 'rejected' ? 'danger' : 'warning',
+        isRead: false,
+        createdAt: new Date().toISOString()
+      };
+      setNotifications(prev => [nextNtf, ...prev]);
+      await writeToFirestore('notifications', nextNtf.id, nextNtf, OperationType.CREATE);
+    }
+
+    // Capture Audit entries
+    const lastAction = updatedMemo.history[updatedMemo.history.length - 1];
+    const auditActionCode = `MEMO_${(lastAction?.action || 'update').toUpperCase()}`;
+    const audit = createAuditLog(
+      currentUser,
+      auditActionCode,
+      `Memo ${updatedMemo.id} stage transitioned to: ${nextStage} by ${lastAction?.userFullName || currentUser.fullName}`
+    );
+    setAuditLogs(prev => [audit, ...prev]);
+    await writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
+  };
+
   // Catalog methods
   const handleAddNewItem = (newItem: StationeryItem) => {
     setCatalog(prev => [newItem, ...prev]);
+    writeToFirestore('catalog', newItem.id, newItem, OperationType.CREATE);
 
     // Log transaction initial
     if (newItem.availableQuantity > 0) {
@@ -195,25 +499,31 @@ export default function App() {
         userId: currentUser.id
       };
       setTransactions(prev => [initialTxn, ...prev]);
+      writeToFirestore('transactions', initialTxn.id, initialTxn, OperationType.CREATE);
     }
 
     // Append audit
     const audit = createAuditLog(currentUser, 'CATALOG_ITEM_CREATE', `Created item code: ${newItem.id} - ${newItem.name}`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   const handleUpdateItem = (updatedItem: StationeryItem) => {
     setCatalog(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+    writeToFirestore('catalog', updatedItem.id, updatedItem, OperationType.UPDATE);
 
     const audit = createAuditLog(currentUser, 'CATALOG_ITEM_UPDATE', `Modified item details for ${updatedItem.id}`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   const handleDeleteItem = (id: string) => {
     setCatalog(prev => prev.filter(item => item.id !== id));
+    deleteFromFirestore('catalog', id);
 
     const audit = createAuditLog(currentUser, 'CATALOG_ITEM_DELETE', `Hard-deleted item code ${id} from corporate registers.`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   // Inventory transaction logger (Stock room Operations tab)
@@ -226,11 +536,14 @@ export default function App() {
     };
 
     setTransactions(prev => [fullTxn, ...prev]);
+    writeToFirestore('transactions', fullTxn.id, fullTxn, OperationType.CREATE);
 
     // Update product quantity level
     setCatalog(prev => prev.map(item => {
       if (item.id === txn.itemId) {
         const nextQty = Math.max(0, item.availableQuantity + txn.quantity);
+        const updatedItem = { ...item, availableQuantity: nextQty };
+        writeToFirestore('catalog', item.id, updatedItem, OperationType.UPDATE);
 
         // Low stock warning trigger checks
         if (nextQty <= item.reorderLevel) {
@@ -244,20 +557,23 @@ export default function App() {
             createdAt: new Date().toISOString()
           };
           setNotifications(old => [warnNotif, ...old]);
+          writeToFirestore('notifications', warnNotif.id, warnNotif, OperationType.CREATE);
         }
 
-        return { ...item, availableQuantity: nextQty };
+        return updatedItem;
       }
       return item;
     }));
 
     const audit = createAuditLog(currentUser, 'INVENTORY_TRANSACTION_POSTED', `Posted stock offset [${txn.quantity}] to catalog SKU: ${txn.itemId}. Reason: ${txn.reason}`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   // Stationery requests submitting (Employee Workflow)
   const handleRequestSubmit = (newRequest: StationeryRequest) => {
     setRequests(prev => [newRequest, ...prev]);
+    writeToFirestore('requests', newRequest.id, newRequest, OperationType.CREATE);
 
     // If it is submitted, send department head a notification
     if (newRequest.status === 'submitted') {
@@ -274,20 +590,25 @@ export default function App() {
         createdAt: new Date().toISOString()
       };
       setNotifications(prev => [deptNotif, ...prev]);
+      writeToFirestore('notifications', deptNotif.id, deptNotif, OperationType.CREATE);
 
       const audit = createAuditLog(currentUser, 'REQUEST_SUBMITTED', `Submited stationery ticket: ${newRequest.id} for department approval.`);
       setAuditLogs(prev => [audit, ...prev]);
+      writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
     } else {
       const audit = createAuditLog(currentUser, 'REQUEST_DRAFT_SAVE', `Saved draft ticket: ${newRequest.id}`);
       setAuditLogs(prev => [audit, ...prev]);
+      writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
     }
   };
 
   const handleCancelRequest = (requestId: string) => {
     setRequests(prev => prev.filter(r => r.id !== requestId));
+    deleteFromFirestore('requests', requestId);
 
     const audit = createAuditLog(currentUser, 'REQUEST_CANCELLED', `Cancelled request number: ${requestId}`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   // Department Sign-offs (Department head)
@@ -305,6 +626,7 @@ export default function App() {
           createdAt: new Date().toISOString()
         };
         setNotifications(old => [successNotif, ...old]);
+        writeToFirestore('notifications', successNotif.id, successNotif, OperationType.CREATE);
 
         // Push global admin notification
         const adminNotif: AppNotification = {
@@ -317,21 +639,25 @@ export default function App() {
           createdAt: new Date().toISOString()
         };
         setNotifications(old => [adminNotif, ...old]);
+        writeToFirestore('notifications', adminNotif.id, adminNotif, OperationType.CREATE);
 
-        return {
+        const updated = {
           ...r,
-          status: 'approved',
+          status: 'approved' as const,
           approvalComment: comment,
           approvedByUserId: currentUser.id,
           approvedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
+        writeToFirestore('requests', r.id, updated, OperationType.UPDATE);
+        return updated;
       }
       return r;
     }));
 
     const audit = createAuditLog(currentUser, 'REQUEST_APPROVAL_SIGNED', `Approved request: ${id}. Comment: ${comment}`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   const handleRejectSubmit = (id: string, comment: string) => {
@@ -348,21 +674,25 @@ export default function App() {
           createdAt: new Date().toISOString()
         };
         setNotifications(old => [rejectNotif, ...old]);
+        writeToFirestore('notifications', rejectNotif.id, rejectNotif, OperationType.CREATE);
 
-        return {
+        const updated = {
           ...r,
-          status: 'rejected',
+          status: 'rejected' as const,
           approvalComment: comment,
           rejectedByUserId: currentUser.id,
           rejectedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
+        writeToFirestore('requests', r.id, updated, OperationType.UPDATE);
+        return updated;
       }
       return r;
     }));
 
     const audit = createAuditLog(currentUser, 'REQUEST_REJECTION_SIGNED', `Declined/Rejected request: ${id}. Comment: ${comment}`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   const handleBulkApproveRequests = (ids: string[]) => {
@@ -379,21 +709,25 @@ export default function App() {
           createdAt: new Date().toISOString()
         };
         setNotifications(old => [successNotif, ...old]);
+        writeToFirestore('notifications', successNotif.id, successNotif, OperationType.CREATE);
 
-        return {
+        const updated = {
           ...r,
-          status: 'approved',
+          status: 'approved' as const,
           approvalComment: 'Approved via department manager bulk sequence.',
           approvedByUserId: currentUser.id,
           approvedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
+        writeToFirestore('requests', r.id, updated, OperationType.UPDATE);
+        return updated;
       }
       return r;
     }));
 
     const audit = createAuditLog(currentUser, 'REQUEST_APPROVAL_BULK_SIGNED', `Processed bulk signoff approvals for tickets: ${ids.join(', ')}`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   // Dispatch desk warehouse adjustments (Store Keeper Admin)
@@ -413,11 +747,14 @@ export default function App() {
             userId: currentUser.id
           };
           setTransactions(old => [deductTxn, ...old]);
+          writeToFirestore('transactions', deductTxn.id, deductTxn, OperationType.CREATE);
 
           // Lower quantity from physical Catalog list
           setCatalog(oldCat => oldCat.map(catItem => {
             if (catItem.id === it.itemId) {
               const resultingQty = Math.max(0, catItem.availableQuantity - it.quantity);
+              const updatedItem = { ...catItem, availableQuantity: resultingQty };
+              writeToFirestore('catalog', catItem.id, updatedItem, OperationType.UPDATE);
 
               if (resultingQty <= catItem.reorderLevel) {
                 const stockAlert: AppNotification = {
@@ -430,9 +767,10 @@ export default function App() {
                   createdAt: new Date().toISOString()
                 };
                 setNotifications(oldN => [stockAlert, ...oldN]);
+                writeToFirestore('notifications', stockAlert.id, stockAlert, OperationType.CREATE);
               }
 
-              return { ...catItem, availableQuantity: resultingQty };
+              return updatedItem;
             }
             return catItem;
           }));
@@ -449,20 +787,24 @@ export default function App() {
           createdAt: new Date().toISOString()
         };
         setNotifications(old => [issuedNotif, ...old]);
+        writeToFirestore('notifications', issuedNotif.id, issuedNotif, OperationType.CREATE);
 
-        return {
+        const updated = {
           ...r,
-          status: 'issued',
+          status: 'issued' as const,
           issuedByUserId: currentUser.id,
           issuedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
+        writeToFirestore('requests', r.id, updated, OperationType.UPDATE);
+        return updated;
       }
       return r;
     }));
 
     const audit = createAuditLog(currentUser, 'REQUEST_DISPATCHED_ISSUED', `Marked request ${id} as issued and lowered item inventories.`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   const handleCompleteRequest = (id: string) => {
@@ -479,58 +821,79 @@ export default function App() {
           createdAt: new Date().toISOString()
         };
         setNotifications(old => [completeNotit, ...old]);
+        writeToFirestore('notifications', completeNotit.id, completeNotit, OperationType.CREATE);
 
-        return {
+        const updated = {
           ...r,
-          status: 'completed',
+          status: 'completed' as const,
           completedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
+        writeToFirestore('requests', r.id, updated, OperationType.UPDATE);
+        return updated;
       }
       return r;
     }));
 
     const audit = createAuditLog(currentUser, 'REQUEST_STATUS_COMPLETED', `Marked order ${id} as physically received & completed.`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   // Super-admin user systems adjusters
   const handleUpdateUserDetails = (updatedUser: User) => {
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    writeToFirestore('users', updatedUser.id, updatedUser, OperationType.UPDATE);
 
     const audit = createAuditLog(currentUser, 'USER_ACCOUNT_UPDATE', `Modified status/role configuration for corporate user: ${updatedUser.fullName} (${updatedUser.id})`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   const handleUpdateConfig = (config: SystemConfig) => {
     setSystemConfig(config);
+    writeToFirestore('systemConfig', 'default', config, OperationType.UPDATE);
 
     const audit = createAuditLog(currentUser, 'SYSTEM_CONFIG_UPDATE', `Adjusted global dollar thresholds and stock enforcement configurations.`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   const handleAddDepartment = (dept: Department) => {
     setDepartments(prev => [...prev, dept]);
+    writeToFirestore('departments', dept.id, dept, OperationType.CREATE);
 
     const audit = createAuditLog(currentUser, 'DEPARTMENT_CREATED', `Added new department corporate block: ${dept.name} [${dept.id}]`);
     setAuditLogs(prev => [audit, ...prev]);
+    writeToFirestore('auditLogs', audit.id, audit, OperationType.CREATE);
   };
 
   // Notification methods
   const handleMarkNotificationRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    setNotifications(prev => prev.map(n => {
+      if (n.id === id) {
+        const updated = { ...n, isRead: true };
+        writeToFirestore('notifications', n.id, updated, OperationType.UPDATE);
+        return updated;
+      }
+      return n;
+    }));
   };
 
   const handleClearNotifications = () => {
     setNotifications(prev => prev.map(n => {
+      let nextN = n;
       // Mark as read based on active roles
       if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
-        if (!n.userId) return { ...n, isRead: true };
+        if (!n.userId) nextN = { ...n, isRead: true };
       }
       if (n.userId === currentUser.id) {
-        return { ...n, isRead: true };
+        nextN = { ...n, isRead: true };
       }
-      return n;
+      if (nextN !== n) {
+        writeToFirestore('notifications', n.id, nextN, OperationType.UPDATE);
+      }
+      return nextN;
     }));
   };
 
@@ -538,6 +901,7 @@ export default function App() {
   const getSidebarTabs = () => {
     const defaultTabs = [
       { id: 'dashboard', label: 'Overview Metrics', icon: <LayoutDashboard className="w-4 h-4" /> },
+      { id: 'memos', label: 'Automated Memos', icon: <FileText className="w-4 h-4 text-orange-500" /> },
       { id: 'catalog', label: 'Stockroom Catalog', icon: <ShoppingBag className="w-4 h-4" /> },
       { id: 'requests', label: 'Create Request', icon: <History className="w-4 h-4" /> },
       { id: 'bincard', label: 'Bin Card CMD', icon: <Terminal className="w-4 h-4 text-indigo-400" /> }
@@ -567,6 +931,18 @@ export default function App() {
   };
 
   const sidebarTabs = getSidebarTabs();
+
+  if (!isLoggedIn) {
+    return (
+      <LandingPage
+        users={users}
+        onSignIn={(user) => {
+          setCurrentUser(user);
+          setIsLoggedIn(true);
+        }}
+      />
+    );
+  }
 
   return (
     <div className={`min-h-screen font-sans ${themeMode === 'dark' ? 'dark bg-[#1D1A4B] text-white' : 'bg-[#f8fafc] text-slate-800'}`}>
@@ -624,6 +1000,20 @@ export default function App() {
             title="Alternative dark-mode simulation"
           >
             {themeMode === 'light' ? <Moon className="w-4.5 h-4.5" /> : <Sun className="w-4.5 h-4.5 text-amber-500" />}
+          </button>
+
+          {/* Log Out Button */}
+          <button
+            id="btn-logout"
+            onClick={() => {
+              if (confirm("Confirm: Sign out of your current Vetiva employee session?")) {
+                setIsLoggedIn(false);
+              }
+            }}
+            className="p-2 text-white bg-rose-950/60 hover:bg-rose-950 border border-rose-800 rounded-lg transition-all cursor-pointer"
+            title="Log out of employee session"
+          >
+            <LogOut className="w-4.5 h-4.5" />
           </button>
 
           {/* Active Impersonation Swapper */}
@@ -713,6 +1103,18 @@ export default function App() {
               users={users}
               onNavigateTo={(tab) => setActiveTab(tab)}
               systemConfig={systemConfig}
+            />
+          )}
+
+          {activeTab === 'memos' && (
+            <MemoHubSection
+              currentUser={currentUser}
+              memos={memos}
+              users={users}
+              departments={departments}
+              onAddMemo={handleAddMemo}
+              onUpdateMemo={handleUpdateMemo}
+              onImpersonateUser={handleUserChange}
             />
           )}
 
